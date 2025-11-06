@@ -1,0 +1,11 @@
+# Microsoft Agent Framework
+agent-framework
+
+# Azure Identity
+azure-identity
+
+# Redis
+redis
+
+# Environment
+python-dotenv
