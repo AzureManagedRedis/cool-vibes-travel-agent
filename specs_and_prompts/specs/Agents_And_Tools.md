@@ -27,15 +27,9 @@
             research_destination, 
             find_flights,
             find_accommodation,
-            booking_assistance 
-
-
-### Game Ticket Purchase sub-agent (data can be hard-coded in the code, Copilot is realllly good in generating that)
-
-Agent Ticket-Purchase
-    user_preferences (read only ok, read from long term Redis memory store)    
-    find_events
-    make_purchase
+            booking_assistance,
+            find_events
+            make_purchase
 
 
 ## Tools
@@ -60,18 +54,13 @@ find_accommodation(
     destination: Annotated[str, "Destination city"],
     budget: Annotated[str, "Budget level"] = "moderate")
 
- 
-find_accommodation(
-    destination: Annotated[str, "Destination city"],
-    budget: Annotated[str, "Budget level"] = "moderate")
-
-
-Booking_assistance - generate sample data, hardcode in the source code
 
 find_events 
     destination: Annotated[str, "The destination to research pro-sport events"]
     Dates: Annotated[str, "Travel dates"] = "flexible")
+    
+booking_assistance - generate sample data, hardcode in the source code or retrieve pre-seeded data from Redis
    
-make_purchase - generate sample data, hardcode in the source code
+make_purchase - generate sample data, hardcode in the source code or retrieve pre-seeded data from Redis
 
 

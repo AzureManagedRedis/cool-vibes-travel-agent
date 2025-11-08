@@ -1,0 +1,13 @@
+## Start.md
+Let's generate a prompt in #file:Start.md for AI to build a Travel Chat Agent with Microsoft Agent Framework in Python. The app needs to use Azure Managed Redis as backed for short = Thread with an associated ChatMessageStore and long term (durable) memory provided through ContextProviders (python/samples/getting_started/context_providers/redis/redis_basics.py, python/samples/getting_started/context_providers/redis/redis_conversation.py, python/samples/getting_started/context_providers/redis/redis_threads.py) using dev UI - https://github.com/microsoft/agent-framework/tree/main/python/packages/devui. The code must be very simple, it will be serving as a sample for developers to start with Azure Managed Redis and Agent Framework
+
+## Feature1 - Agents and Tools
+We are vibe coding app described in #file:Start.md. Next step is to build a prompt that defines Agents and Tools to create in the application in #file:Feature1-AgentsAndTools.md. The agents and tools are defined in #file:Agents_And_Tools.md. We'd like to use two agents one main Travel-Agent and other a sub agent that would indepadantly be initiated by the Travel-Agent that would research pro-sport events in the destination and based on user preferences select the right sport, and seating in the stadium. The ticket and seating. The ticket purchase and seating can be hard-coded in the code. Make sure the agents would be compatible with Agent Framework DevUI. We are just creating a prompt for this, no code.
+
+## Feature2 - Seeding
+We have a basic overall spec of our application here #file:Start.md . Next step is to build a prompt for Copilot in #file:Feature1.md to implement a seeding of the presistent Azure Managed Redis memory with users and preferences details detailes from #file:seed.json that would replace all previous durable preferences for named users with new set once the app is launched. Please use a key "Preferences" in Redis so we can clearly show in Redis Insight that it works as expected. We are just creating a prompt for this, no code.
+
+## Feature 3
+
+## Code
+Implement in python this application #file:Start.md with these two features #file:Feature1-AgentsAndTools.md, #file:Feature2-SeedingPreferences.md. Write minimal code, test as you go. Outcome is a functional app using Microsoft Agent Framework, Azure Open AI and Azure Managed Redis. The UI is DevUI from Agent Framework. Let's go!
