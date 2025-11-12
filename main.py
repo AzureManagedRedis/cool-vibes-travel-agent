@@ -35,11 +35,6 @@ from agents.travel_agent import (
     TRAVEL_AGENT_DESCRIPTION,
     TRAVEL_AGENT_INSTRUCTIONS
 )
-from agents.ticket_agent import (
-    TICKET_AGENT_NAME,
-    TICKET_AGENT_DESCRIPTION,
-    TICKET_AGENT_INSTRUCTIONS
-)
 
 # Import seeding and conversation storage
 from seeding import seed_user_preferences_with_vectors
@@ -64,9 +59,14 @@ def main():
     azure_endpoint = os.getenv('AZURE_OPENAI_ENDPOINT')
     azure_key = os.getenv('AZURE_OPENAI_API_KEY')
     azure_deployment = os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME')
+    app_insights_conn_string = os.getenv('APPLICATIONINSIGHTS_CONNECTION_STRING')
 
-    setup_observability(enable_sensitive_data=True, applicationinsights_connection_string="InstrumentationKey=ac20080d-e4d8-4e2d-bc32-3f37c9bf3c28;IngestionEndpoint=https://westus2-2.in.applicationinsights.azure.com/;LiveEndpoint=https://westus2.livediagnostics.monitor.azure.com/;ApplicationId=cea5dbb7-3a1d-4704-a179-dc0ec23b1e3e")
-    logger.info("App Insights initialized successfully")
+    # Setup observability if connection string is provided
+    if app_insights_conn_string:
+        setup_observability(enable_sensitive_data=True, applicationinsights_connection_string=app_insights_conn_string)
+        logger.info("✓ Application Insights initialized successfully")
+    else:
+        logger.info("⚠ Application Insights connection string not found, skipping observability setup")
     
     if not all([redis_url, azure_endpoint, azure_key, azure_deployment]):
         logger.error("Missing required environment variables. Please check your .env file.")
@@ -183,17 +183,6 @@ def main():
     )
     logger.info(f"✓ {TRAVEL_AGENT_NAME} created")
     
-    # Create Ticket Purchase Agent
-    logger.info("Creating Ticket Purchase Agent...")
-    ticket_agent = responses_client.create_agent(
-        name=TICKET_AGENT_NAME,
-        description=TICKET_AGENT_DESCRIPTION,
-        instructions=TICKET_AGENT_INSTRUCTIONS,
-        tools=ticket_tools,
-        chat_message_store_factory=chat_message_store_factory
-    )
-    logger.info(f"✓ {TICKET_AGENT_NAME} created")
-    
     # Start DevUI
     logger.info("Starting DevUI...")
     logger.info("=" * 60)
@@ -206,9 +195,9 @@ def main():
     logger.info("  - 'Hi, I'm Shruti. What family-friendly activities are in Chicago?'")
     logger.info("=" * 60)
     
-    # Start DevUI with both agents
+    # Start DevUI with single travel agent
     serve(
-        entities=[travel_agent, ticket_agent],
+        entities=[travel_agent],
         host="localhost",
         port=8000,
         auto_open=True

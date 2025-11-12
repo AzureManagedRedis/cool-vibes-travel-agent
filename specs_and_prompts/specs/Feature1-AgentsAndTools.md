@@ -1,18 +1,18 @@
-# Feature: Multi-Agent Travel Planning System with Sports Event Booking
+# Feature: Travel Planning Agent with Sports Event Booking
 
 ## Overview
-Implement a multi-agent architecture for the Travel Chat Agent that includes a main orchestrator agent and a specialized sub-agent for professional sports event research and ticket booking. The system should be fully compatible with the Agent Framework DevUI for testing and demonstration.
+Implement a comprehensive travel planning agent that includes destination research, booking assistance, and professional sports event research and ticket booking capabilities. The system should be fully compatible with the Agent Framework DevUI for testing and demonstration.
 
 ## Agent Architecture
 
-### 1. Main Agent: Travel-Agent
+### Travel-Agent
 
-**Purpose**: Comprehensive travel planning orchestrator with research and booking assistance capabilities.
+**Purpose**: Comprehensive travel planning orchestrator with research, booking assistance, and sports event booking capabilities.
 
 **Agent Configuration**:
 - **Name**: `"travel-agent"`
 - **Type**: `ChatAgent`
-- **Description**: "Comprehensive travel planning agent with research and booking assistance"
+- **Description**: "Comprehensive travel planning agent with research, booking assistance, and sports event booking"
 - **DevUI Compatibility**: Must be configured as the primary agent accessible through DevUI interface
 
 **Instructions/System Prompt**:
@@ -27,9 +27,10 @@ Your capabilities include:
 - Weather information for destinations
 - Travel insurance recommendations
 - Documentation and visa requirements
+- Sports event research and ticket booking
 
-When users express interest in sports or mention attending games, you should delegate to the 
-ticket-purchase-agent to handle event research and ticket booking for professional sports events.
+When users express interest in sports or mention attending games, use your find_events and 
+make_purchase tools to help them find and book tickets for professional sports events.
 
 Use your tools proactively to provide detailed, helpful travel planning assistance.
 Always consider the user's preferences, budget, and travel dates when making recommendations.
@@ -38,75 +39,26 @@ Be conversational, helpful, and provide actionable travel advice.
 ```
 
 **Tools** (assigned to Travel-Agent):
-1. `user_preferences` - Read user preferences from long-term Redis memory
-2. `research_weather` - Weather research for destinations
-3. `research_destination` - Destination research with attractions and culture
-4. `find_flights` - Flight search and availability
-5. `find_accommodation` - Accommodation search and recommendations
-6. `booking_assistance` - General booking support
-
-**Sub-Agent Integration**:
-- Must be able to delegate to `ticket-purchase-agent` for sports event inquiries
-- Pass relevant context (destination, dates, user preferences) to the sub-agent
-- Receive and integrate sports event recommendations into the overall travel plan
-
----
-
-### 2. Sub-Agent: Ticket-Purchase-Agent
-
-**Purpose**: Specialized agent for researching professional sports events and handling ticket selection based on user preferences.
-
-**Agent Configuration**:
-- **Name**: `"ticket-purchase-agent"`
-- **Type**: `ChatAgent` or specialized agent type
-- **Description**: "Specialized agent for professional sports event research and ticket booking"
-- **Invocation**: Called by Travel-Agent when sports event booking is needed
-
-**Instructions/System Prompt**:
-```
-You are a specialized sports event booking agent focused on helping travelers attend professional 
-sports games during their trips.
-
-Your responsibilities:
-1. Research professional sports events happening in the destination during the travel dates
-2. Match events to the user's sports preferences and interests
-3. Recommend appropriate seating options based on user preferences (e.g., premium seats for users 
-   who prefer boutique experiences, family-friendly sections for users traveling with kids)
-4. Handle ticket selection and purchase coordination
-
-Always consider the user's profile when making recommendations:
-- Budget preferences
-- Seating preferences (close to action, family-friendly, premium experiences)
-- Sports interests
-- Travel dates and schedule
-
-Provide clear information about:
-- Event details (teams, venue, date/time)
-- Available seating options with prices
-- Venue amenities and accessibility
-- Transportation to/from venue
-```
-
-**Tools** (assigned to Ticket-Purchase-Agent):
-1. `user_preferences` - Read-only access to user preferences from long-term Redis memory
-2. `find_events` - Research professional sports events in destination
-3. `make_purchase` - Handle ticket selection and purchase (simulated with hardcoded data)
-
-**Context Access**:
-- Read-only access to user preferences from Redis (key: `"Preferences"`)
-- Receives destination and travel dates from parent Travel-Agent
-- Can query user preferences to personalize recommendations
+1. `user_preferences` - Read user preferences from Redis UserPref vector keys
+2. `remember_preference` - Store new learned preferences with vector embeddings
+3. `get_semantic_preferences` - Retrieve preferences using semantic search
+4. `reseed_user_preferences` - Reset all preferences from seed.json
+5. `research_weather` - Weather research for destinations
+6. `research_destination` - Destination research with attractions and culture
+7. `find_flights` - Flight search and availability
+8. `find_accommodation` - Accommodation search and recommendations
+9. `booking_assistance` - General booking support
+10. `find_events` - Research professional sports events in destination
+11. `make_purchase` - Handle ticket selection and purchase for sports events
 
 ---
 
 ## Tool Specifications
 
-### Shared Tools
+### User Preference Tools
 
 #### `user_preferences`
-**Purpose**: Retrieve user preferences from long-term Redis memory store
-
-**Access**: Read-only for both agents
+**Purpose**: Retrieve user preferences from Redis UserPref vector keys
 
 **Parameters**:
 ```python
@@ -114,18 +66,66 @@ user_name: Annotated[str, "The name of the user to retrieve preferences for"]
 ```
 
 **Returns**: 
-- User insights/preferences as stored in Redis under `"Preferences"` key
-- Format should include insights like "Likes to stay boutique hotels", "Loves food tours", etc.
+- User insights/preferences as stored in Redis under `cool-vibes-agent:UserPref:{user_name}:*` keys
+- Format includes insights like "Likes to stay boutique hotels", "Loves food tours", etc.
 
 **Implementation Notes**:
-- Connects to Azure Managed Redis using context provider
-- Queries the `"Preferences"` key by user name
+- Reads from vectorized UserPref keys in Redis
 - Returns empty/default preferences if user not found
-- Should be accessible to both agents
 
 ---
 
-### Travel-Agent Tools
+#### `remember_preference`
+**Purpose**: Store a new preference for a user with semantic search capabilities
+
+**Parameters**:
+```python
+user_name: Annotated[str, "The name of the user"]
+preference: Annotated[str, "The preference to remember for this user"]
+```
+
+**Returns**: Confirmation message
+
+**Implementation Notes**:
+- Stores preference with vector embedding for semantic search
+- Uses Azure OpenAI text-embedding-3-small model
+- Allows agent to learn new preferences during conversations
+
+---
+
+#### `get_semantic_preferences`
+**Purpose**: Retrieve user preferences using semantic search
+
+**Parameters**:
+```python
+user_name: Annotated[str, "The name of the user"]
+query: Annotated[Optional[str], "Optional query to find relevant preferences"] = None
+```
+
+**Returns**: Formatted string of user preferences (optionally filtered by semantic similarity)
+
+**Implementation Notes**:
+- Uses vector embeddings for semantic similarity search
+- If query provided, returns preferences most relevant to the query
+- Fallback to regular user_preferences if vector search unavailable
+
+---
+
+#### `reseed_user_preferences`
+**Purpose**: Delete all existing vectorized user preferences and re-seed from seed.json
+
+**Parameters**: None
+
+**Returns**: Confirmation message
+
+**Implementation Notes**:
+- Deletes all cool-vibes-agent:UserPref:* keys
+- Drops and recreates RediSearch index
+- Re-seeds from seed.json with fresh vector embeddings
+
+---
+
+### Travel Tools
 
 #### `research_weather`
 **Purpose**: Get weather information for a destination
@@ -198,7 +198,7 @@ details: Annotated[str, "Booking details and requirements"]
 
 ---
 
-### Ticket-Purchase-Agent Tools
+### Sports Event Tools
 
 #### `find_events`
 **Purpose**: Research professional sports events in the destination during travel dates
@@ -284,7 +284,7 @@ seating_options = {
 
 ---
 
-## Multi-Agent Workflow
+## Workflow Example
 
 ### Scenario: User wants to attend a sports game during their trip
 
@@ -292,32 +292,20 @@ seating_options = {
 
 2. **Travel-Agent**:
    - Receives the query
-   - Calls `user_preferences` to understand user profile (e.g., Mark likes boutique hotels)
+   - Calls `user_preferences("Mark")` to understand user profile (e.g., Mark likes boutique hotels)
    - Recognizes sports event request
-   - **Delegates to Ticket-Purchase-Agent** with context:
-     - Destination: "New York"
-     - Dates: "November 2025"
-     - Sport preference: "Basketball"
-     - User profile: Mark's preferences
-
-3. **Ticket-Purchase-Agent**:
-   - Calls `user_preferences("Mark")` to get preferences
    - Calls `find_events(destination="New York", dates="November 2025", sport_type="basketball")`
    - Reviews available NBA games
    - Based on Mark's boutique hotel preference, infers he may prefer premium seating
    - Presents 2-3 game options with recommended seating
 
-4. **User Selection**: "I'd like tickets for the Knicks vs Lakers game"
+3. **User Selection**: "I'd like tickets for the Knicks vs Lakers game"
 
-5. **Ticket-Purchase-Agent**:
+4. **Travel-Agent**:
    - Calls `make_purchase(event_id="knicks_lakers_nov15", seating_preference="premium", quantity=2)`
    - Returns confirmation with premium seats in section 101
    - Provides venue details and recommendations
-
-6. **Travel-Agent**:
-   - Receives sports event confirmation from sub-agent
-   - Integrates into overall travel plan
-   - May suggest accommodation near Madison Square Garden
+   - May suggest accommodation near Madison Square Garden using `find_accommodation`
    - May call `research_destination` for other activities around the game date
 
 ---
@@ -325,29 +313,20 @@ seating_options = {
 ## DevUI Compatibility Requirements
 
 ### 1. Agent Registration
-- Both agents must be properly registered with the Agent Framework
+- Travel-Agent must be properly registered with the Agent Framework
 - Travel-Agent should be the primary/default agent displayed in DevUI
-- Sub-agent should be invokable but not necessarily directly accessible in UI
 
 ### 2. Configuration
 ```python
-# Travel-Agent (primary)
+# Travel-Agent (single agent with all tools)
 travel_agent = ChatAgent(
     name="travel-agent",
-    description="Comprehensive travel planning agent with research and booking assistance",
+    description="Comprehensive travel planning agent with research, booking assistance, and sports event booking",
     instructions="<full instructions as specified above>",
     chat_client=chat_client,
-    tools=[user_preferences, research_weather, research_destination, 
-           find_flights, find_accommodation, booking_assistance]
-)
-
-# Ticket-Purchase-Agent (sub-agent)
-ticket_agent = ChatAgent(
-    name="ticket-purchase-agent",
-    description="Specialized agent for professional sports event research and ticket booking",
-    instructions="<full instructions as specified above>",
-    chat_client=chat_client,
-    tools=[user_preferences, find_events, make_purchase]
+    tools=[user_preferences, remember_preference, get_semantic_preferences, reseed_user_preferences,
+           research_weather, research_destination, find_flights, find_accommodation, 
+           booking_assistance, find_events, make_purchase]
 )
 ```
 
@@ -358,12 +337,13 @@ ticket_agent = ChatAgent(
 
 ### 4. Context Provider Integration
 - User preferences tool must integrate with Redis context provider
-- Should access data stored under `"Preferences"` key (from Feature 1 seeding)
+- Should access data stored under `cool-vibes-agent:UserPref:*` keys (vector storage)
 - Context should be available across agent invocations
+- Support for dynamic learning with remember_preference and semantic search
 
 ### 5. Thread Management
 - Conversations should persist in Redis
-- Both agents should have access to conversation history as needed
+- Agent should have access to conversation history as needed
 - Thread isolation for concurrent users
 
 ---
@@ -378,16 +358,20 @@ ticket_agent = ChatAgent(
 ### Testing Strategy
 1. **DevUI Manual Testing**:
    - Open DevUI and start conversation with Travel-Agent
-   - Test user preference retrieval for seeded users (Mark, Shruti)
+   - Test user preference retrieval for seeded users (Mark, Shruti, Jan, Roberto)
+   - Test remember_preference to store new preferences during conversations
+   - Test get_semantic_preferences for semantic search queries
    - Test sports event flow with different cities and dates
-   - Verify sub-agent delegation works correctly
+   - Verify ticket booking works correctly
 
 2. **Verification Points**:
-   - User preferences correctly retrieved from Redis
+   - User preferences correctly retrieved from Redis UserPref keys
+   - New preferences can be learned and stored with embeddings
+   - Semantic search returns relevant preferences
    - Sports events returned match destination and dates
    - Seating recommendations align with user preferences
    - Conversation history persists across interactions
-   - Both agents visible/functional in DevUI
+   - Agent visible/functional in DevUI
 
 ### Personalization Examples
 
@@ -407,14 +391,15 @@ ticket_agent = ChatAgent(
 
 1. ✅ Travel-Agent successfully accessible through DevUI
 2. ✅ All Travel-Agent tools functional with mock/hardcoded data
-3. ✅ Ticket-Purchase-Agent properly invoked by Travel-Agent
-4. ✅ Sports event research returns relevant hardcoded events
-5. ✅ Ticket purchase simulation completes with confirmation
-6. ✅ User preferences correctly retrieved from Redis and influence recommendations
-7. ✅ Conversation flows naturally between agents
-8. ✅ Thread history persists in Redis
-9. ✅ Error handling prevents conversation breakdown
-10. ✅ Code is well-documented with clear agent/tool separation
+3. ✅ Sports event research returns relevant hardcoded events
+4. ✅ Ticket purchase simulation completes with confirmation
+5. ✅ User preferences correctly retrieved from Redis UserPref keys and influence recommendations
+6. ✅ Dynamic learning works - new preferences can be stored with remember_preference
+7. ✅ Semantic search retrieves relevant preferences with get_semantic_preferences
+8. ✅ Conversation flows naturally
+9. ✅ Thread history persists in Redis
+10. ✅ Error handling prevents conversation breakdown
+11. ✅ Code is well-documented with clear agent/tool separation
 
 ---
 
@@ -423,11 +408,10 @@ ticket_agent = ChatAgent(
 Recommended structure:
 ```
 agents/
-    travel_agent.py       # Main Travel-Agent definition
-    ticket_agent.py       # Ticket-Purchase-Agent definition
+    travel_agent.py       # Travel-Agent definition with all capabilities
     
 tools/
-    user_tools.py         # user_preferences tool
+    user_tools.py         # user_preferences, remember_preference, get_semantic_preferences, reseed_user_preferences
     travel_tools.py       # research_weather, research_destination, find_flights, find_accommodation, booking_assistance
     sports_tools.py       # find_events, make_purchase
     
@@ -435,6 +419,9 @@ data/
     mock_events.py        # Hardcoded sports event data
     mock_venues.py        # Hardcoded venue and seating data
     
+context_provider.py       # Vector storage and retrieval functions
+seeding.py                # Redis seeding with vector embeddings
+conversation_storage.py   # Conversation persistence
 main.py                   # Application entry point, agent registration, DevUI setup
 ```
 
@@ -442,14 +429,15 @@ main.py                   # Application entry point, agent registration, DevUI s
 
 ## Related Specifications
 - Overall project spec: `Start.md`
-- Redis seeding feature: `Feature1.md`
-- Agent and tool definitions: `Agents_And_Tools.md`
+- Redis seeding with vectors: `Feature4-DynamicPreferences.md`
+- Conversation persistence: `Feature3.md`
 
 ---
 
 ## Notes
-- This is a demonstration application showcasing multi-agent architecture
+- This is a demonstration application showcasing Agent Framework capabilities
 - Sports event data and ticket purchases are simulated (hardcoded)
 - In production, these would connect to real ticketing APIs
-- Focus is on demonstrating Agent Framework capabilities and Redis integration
+- Focus is on demonstrating Agent Framework capabilities and Redis integration with vector search
 - DevUI compatibility ensures easy testing and demonstration
+- Dynamic learning allows the agent to remember new user preferences during conversations

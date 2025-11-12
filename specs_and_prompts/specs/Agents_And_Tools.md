@@ -15,6 +15,7 @@
         - Accommodation research and booking guidance
         - Travel insurance recommendations
         - Documentation and visa requirements
+        - Professional sports event research and ticket booking
         
         Use your tools proactively to provide detailed, helpful travel planning assistance.
         Always consider the user's preferences, budget, and travel dates when making recommendations.
@@ -23,19 +24,36 @@
         """,
         chat_client=chat_client,
         tools=[
+            user_preferences,
             research_weather,
             research_destination, 
             find_flights,
             find_accommodation,
             booking_assistance,
-            find_events
-            make_purchase
+            find_events,
+            make_purchase,
+            remember_preference,
+            get_semantic_preferences,
+            reseed_user_preferences
+        ]
+    )
 
 
 ## Tools
 
-user_preferences (read only ok, read from long term Redis memory store)
-    User
+user_preferences (read user preferences from Redis UserPref vector keys)
+    user_name: Annotated[str, "The name of the user to retrieve preferences for"]
+
+remember_preference (store new learned preferences with vector embeddings)
+    user_name: Annotated[str, "The name of the user"]
+    preference: Annotated[str, "The preference to remember for this user"]
+
+get_semantic_preferences (retrieve preferences using semantic search)
+    user_name: Annotated[str, "The name of the user"]
+    query: Annotated[Optional[str], "Optional query to find relevant preferences"] = None
+
+reseed_user_preferences (reset all preferences from seed.json)
+    No parameters - resets all vectorized preferences
 
 research_weather(
     destination: Annotated[str, "The destination to research weather for"])
@@ -43,7 +61,6 @@ research_weather(
 research_destination(
     destination: Annotated[str, "The destination to research"],
     interests: Annotated[str, "Travel interests or preferences"] = "general tourism")
-
 
 find_flights(
     origin: Annotated[str, "Departure city or airport"],
@@ -54,13 +71,12 @@ find_accommodation(
     destination: Annotated[str, "Destination city"],
     budget: Annotated[str, "Budget level"] = "moderate")
 
-
-find_events 
+find_events (research professional sports events)
     destination: Annotated[str, "The destination to research pro-sport events"]
-    Dates: Annotated[str, "Travel dates"] = "flexible")
+    dates: Annotated[str, "Travel dates"] = "flexible")
     
-booking_assistance - generate sample data, hardcode in the source code or retrieve pre-seeded data from Redis
+booking_assistance (generate sample data, hardcode in the source code or retrieve pre-seeded data from Redis)
    
-make_purchase - generate sample data, hardcode in the source code or retrieve pre-seeded data from Redis
+make_purchase (handle ticket selection and purchase for sports events - generate sample data, hardcode in the source code or retrieve pre-seeded data from Redis)
 
 
