@@ -2,7 +2,7 @@
 
 ## ✅ Implementation Complete
 
-Successfully implemented a Travel Chat Agent using Microsoft Agent Framework, Azure OpenAI, and Azure Managed Redis.
+Successfully implemented a Travel Chat Agent using Microsoft Agent Framework, Azure OpenAI, and Azure Managed Redis with full conversation persistence.
 
 ## What Was Built
 
@@ -11,9 +11,16 @@ Successfully implemented a Travel Chat Agent using Microsoft Agent Framework, Az
 - **Ticket-Purchase-Agent** (Sub-agent): Specialized sports event research and ticket booking
 
 ### 2. Persistent Memory with Azure Managed Redis
-- User preferences seeded from `seed.json` on application startup
-- Stored under Redis key `"Preferences"` for easy verification
-- Both agents can access user preferences to personalize recommendations
+- **User Preferences**: Seeded from `seed.json` on application startup
+  - Stored under Redis key `cool-vibes-agent:Preferences`
+  - Accessible to both agents for personalization
+  
+- **Conversation History**: All conversations automatically persisted to Redis
+  - Stored under namespace `cool-vibes-agent:Conversations:`
+  - Each conversation thread has unique ID
+  - Messages persist across application restarts
+  - Full conversation context maintained
+  - Thread isolation for concurrent users
 
 ### 3. Tools Implemented
 
@@ -51,6 +58,8 @@ AF.AMR.VibeCoded/
 │   └── mock_venues.py         # Venue seating database
 ├── seed.json                  # User preferences seed data
 ├── seeding.py                 # Redis seeding logic
+├── conversation_storage.py    # Redis conversation persistence
+├── verify_redis.py            # Redis verification utility
 ├── main.py                    # Application entry point
 ├── requirements.txt           # Dependencies
 ├── .env.example               # Configuration template
@@ -92,18 +101,37 @@ Expected: Agent retrieves Shruti's preferences (food tours, kids friendly)
 
 ## Redis Verification
 
+### Using verify_redis.py Script
+```powershell
+python verify_redis.py
+```
+
+This will show:
+- All conversation threads stored in Redis
+- Number of messages per thread
+- User preferences for all seeded users
+- Redis key structure and organization
+
+### Using Redis Insight
+
 1. Open Redis Insight
 2. Connect to your Azure Managed Redis instance
-3. Look for key: `Preferences`
-4. You should see:
-   - `Mark`: boutique hotels, professional sports preferences
-   - `Shruti`: food tours, kids friendly preferences
+3. Look for keys:
+   - `cool-vibes-agent:Preferences` - User preferences (Mark, Shruti, Jan, Roberto)
+   - `cool-vibes-agent:Conversations:{thread-id}` - Individual conversation threads
+4. Inspect conversation threads to see:
+   - Complete message history as list
+   - User and assistant messages
+   - JSON-formatted message data
+   - Thread metadata
 
 ## Features Demonstrated
 
 ✅ Multi-agent architecture with delegation
 ✅ Persistent memory with Azure Managed Redis
 ✅ Context-aware conversations using stored preferences
+✅ **Conversation history persistence across sessions**
+✅ **Thread-based conversation management**
 ✅ DevUI integration for easy testing
 ✅ Function tools for agent capabilities
 ✅ Personalized recommendations based on user profiles
@@ -124,11 +152,20 @@ Expected: Agent retrieves Shruti's preferences (food tours, kids friendly)
 - Uses `AzureOpenAIResponsesClient` for Azure OpenAI integration
 - Tools passed directly as functions (no decorators needed)
 - Environment variables loaded from `.env` file
+- **Chat message store factory** enables conversation persistence
 
 ### Redis Integration
-- Seeding runs automatically on startup
-- User preferences stored as JSON in Redis hash
-- `user_preferences` tool queries Redis for personalization
+- **User Preferences**: Seeding runs automatically on startup
+  - User preferences stored as JSON in Redis hash
+  - `user_preferences` tool queries Redis for personalization
+  
+- **Conversation Storage**: Automatic persistence via Agent Framework
+  - Uses `RedisChatMessageStore` from `agent-framework-redis`
+  - Each conversation thread has unique ID
+  - Messages stored as list in Redis
+  - Key pattern: `cool-vibes-agent:Conversations:{thread_id}`
+  - Up to 1000 messages retained per thread
+  - Conversations survive application restarts
 
 ### DevUI
 - Started with `serve()` function
@@ -163,10 +200,13 @@ Expected: Agent retrieves Shruti's preferences (food tours, kids friendly)
 
 ✅ Functional multi-agent system
 ✅ Persistent memory in Azure Managed Redis
+✅ **Conversation history persists across restarts**
+✅ **Thread-based conversation management**
 ✅ Personalized recommendations based on stored preferences
 ✅ DevUI integration for testing
 ✅ Clean, documented code
 ✅ Easy to extend and modify
+✅ **Conversation continuity across sessions**
 
 ---
 
@@ -175,3 +215,4 @@ Expected: Agent retrieves Shruti's preferences (food tours, kids friendly)
 **Agents**: 2 (travel-agent, ticket-purchase-agent)
 **Tools**: 9 total (1 shared, 5 travel, 3 sports)
 **Redis**: Connected and seeded
+**Conversation Storage**: ✅ Active (cool-vibes-agent:Conversations namespace)

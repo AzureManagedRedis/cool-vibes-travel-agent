@@ -107,5 +107,43 @@ EVENTS_DATA = {
             "time": "19:00",
             "city": "Boston"
         }
+    ],
+    "london": [
+        {
+            "id": "chelsea_barcelona_nov25",
+            "sport": "Premier League",
+            "teams": "Chelsea vs Barcelona",
+            "venue": "Stamford Bridge",
+            "date": "2025-11-25",
+            "time": "15:00",
+            "city": "London"
+        },
+        {
+            "id": "chelsea_manchesterunited_nov30",
+            "sport": "Premier League",
+            "teams": "Chelsea vs Manchester United",
+            "venue": "Stamford Bridge",
+            "date": "2025-11-30",
+            "time": "11:30",
+            "city": "London"
+        },
+        {
+            "id": "chelsea_everton_dec13",
+            "sport": "Premier League",
+            "teams": "Chelsea vs Everton",
+            "venue": "Stamford Bridge",
+            "date": "2025-12-13",
+            "time": "10:00",
+            "city": "London"
+        },
+         {
+            "id": "chelsea_astonvilla_dec27",
+            "sport": "Premier League",
+            "teams": "Chelsea vs Aston Villa",
+            "venue": "Stamford Bridge",
+            "date": "2025-12-27",
+            "time": "12:30",
+            "city": "London"
+  }  
     ]
 }

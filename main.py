@@ -1,6 +1,7 @@
 """Main application entry point for Travel Chat Agent."""
 import os
 import logging
+import asyncio
 from dotenv import load_dotenv
 import redis
 from agent_framework.azure import AzureOpenAIResponsesClient
@@ -10,7 +11,15 @@ from azure.identity import AzureCliCredential
 from agent_framework.observability import get_tracer, setup_observability
 
 # Import tools
-from tools.user_tools import user_preferences, set_redis_client
+from tools.user_tools import (
+    user_preferences,
+    remember_preference,
+    get_semantic_preferences,
+    reseed_user_preferences,
+    set_redis_client,
+    set_search_index,
+    set_vectorizer
+)
 from tools.travel_tools import (
     research_weather,
     research_destination,
@@ -32,8 +41,9 @@ from agents.ticket_agent import (
     TICKET_AGENT_INSTRUCTIONS
 )
 
-# Import seeding
-from seeding import seed_user_preferences
+# Import seeding and conversation storage
+from seeding import seed_user_preferences_with_vectors
+from conversation_storage import create_chat_message_store_factory
 
 # Configure logging
 logging.basicConfig(
@@ -69,21 +79,53 @@ def main():
         redis_client = redis.from_url(redis_url, decode_responses=False)
         redis_client.ping()
         logger.info("✓ Connected to Redis successfully")
-        
-        # Set Redis client for user tools
-        set_redis_client(redis_client)
-        
-        # Seed user preferences
-        logger.info("Seeding user preferences from seed.json...")
-        if seed_user_preferences(redis_client):
-            logger.info("✓ User preferences seeded successfully")
-        else:
-            logger.warning("⚠ Seeding completed with warnings or was skipped")
     except Exception as e:
         logger.error(f"Failed to connect to Redis: {e}")
-        logger.warning("⚠ Continuing without Redis - user preferences will not be available")
-        # Don't exit - allow app to start even if Redis is unavailable
+        return
+    
+    # Set Redis client for user tools
+    set_redis_client(redis_client)
+    
+    # Initialize vector search for preferences (Feature 4)
+    logger.info("Initializing vector search for semantic preferences...")
+    vectorizer = None
+    search_index = None
+    
+    try:
+        from context_provider import create_vectorizer, create_search_index
+        
+        vectorizer = create_vectorizer()
+        search_index = create_search_index(redis_url, vectorizer)
+        
+        # Set globals for tools
+        set_vectorizer(vectorizer)
+        set_search_index(search_index)
+        
+        logger.info("✓ Vector search initialized")
+        
+        # Seed vectorized preferences asynchronously
+        logger.info("Seeding vectorized user preferences...")
+        asyncio.run(seed_user_preferences_with_vectors(redis_url, vectorizer))
+        logger.info("✓ Vectorized preferences seeded")
+            
+    except Exception as e:
+        logger.warning(f"⚠ Could not initialize vector search: {e}")
+        logger.warning("  Falling back to static preferences only (this is normal if embedding deployment doesn't exist)")
+    
+    # Note: We no longer seed the old "Preferences" hash key
+    # All preferences are now stored as vectorized UserPref keys
 
+    
+    # Create chat message store factory for conversation persistence
+    logger.info("Initializing conversation storage with Redis...")
+    try:
+        chat_message_store_factory = create_chat_message_store_factory(redis_url)
+        logger.info("✓ Conversation storage configured")
+        logger.info("  Conversations will be stored under: cool-vibes-agent:Conversations")
+    except Exception as e:
+        logger.error(f"Failed to initialize conversation storage: {e}")
+        logger.warning("⚠ Continuing without conversation persistence")
+        chat_message_store_factory = None
     
     # Initialize Azure OpenAI Responses client
     logger.info("Initializing Azure OpenAI Responses client...")
@@ -110,6 +152,9 @@ def main():
     # Create travel agent tools list
     travel_tools = [
         user_preferences,
+        get_semantic_preferences,
+        remember_preference,
+        reseed_user_preferences,
         research_weather,
         research_destination,
         find_flights,
@@ -122,6 +167,8 @@ def main():
     # Create ticket agent tools list
     ticket_tools = [
         user_preferences,
+        get_semantic_preferences,
+        remember_preference,
         find_events,
         make_purchase
     ]
@@ -132,7 +179,8 @@ def main():
         name=TRAVEL_AGENT_NAME,
         description=TRAVEL_AGENT_DESCRIPTION,
         instructions=TRAVEL_AGENT_INSTRUCTIONS,
-        tools=travel_tools
+        tools=travel_tools,
+        chat_message_store_factory=chat_message_store_factory
     )
     logger.info(f"✓ {TRAVEL_AGENT_NAME} created")
     
@@ -142,7 +190,8 @@ def main():
         name=TICKET_AGENT_NAME,
         description=TICKET_AGENT_DESCRIPTION,
         instructions=TICKET_AGENT_INSTRUCTIONS,
-        tools=ticket_tools
+        tools=ticket_tools,
+        chat_message_store_factory=chat_message_store_factory
     )
     logger.info(f"✓ {TICKET_AGENT_NAME} created")
     

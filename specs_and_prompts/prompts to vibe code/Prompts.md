@@ -7,7 +7,11 @@ We are vibe coding app described in #file:Start.md. Next step is to build a prom
 ## Feature2 - Seeding
 We have a basic overall spec of our application here #file:Start.md . Next step is to build a prompt for Copilot in #file:Feature1.md to implement a seeding of the presistent Azure Managed Redis memory with users and preferences details detailes from #file:seed.json that would replace all previous durable preferences for named users with new set once the app is launched. Please use a key "Preferences" in Redis so we can clearly show in Redis Insight that it works as expected. We are just creating a prompt for this, no code.
 
-## Feature 3
-
 ## Code
 Implement in python this application #file:Start.md with these two features #file:Feature1-AgentsAndTools.md, #file:Feature2-SeedingPreferences.md. Write minimal code, test as you go. Outcome is a functional app using Microsoft Agent Framework, Azure Open AI and Azure Managed Redis. The UI is DevUI from Agent Framework. Let's go!
+
+## Feature3 - saving conversations to AMR
+For the #codebase we'd like to implement #file:Feature3-CachingConversations.md with minimal code chages. The app still needs to follow the guiding principles at #file:Start.md 
+
+## Feture4 - dynamic preferences
+Ok, so let's write a prompt into #file:Feature4-DynamicPreferences.md to implement the dynamic context learning with Redis and Agent Framework as showcased here https://github.com/microsoft/agent-framework/blob/main/python/samples/getting_started/context_providers/redis/redis_threads.py. We'd also need to update the #file:seeding.py to vectorize the preferences. Our current OpenAI end point already has a deployment of text-embedding-3-small and text-embedding-ada-002. For demo purposes we also need a new tool reseed_user_preferences that would delete all existing durable preferences in Redis and re-seed new from #file:seed.json . Also make sure to correctly attribute preferences to the current user. Users do not login they just state their name in the conversations. That is ok for demonstration purposes. Let's write the prompt, keep the instructions minimal, clear and without ambiguity.

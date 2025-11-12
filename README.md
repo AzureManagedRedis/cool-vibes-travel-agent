@@ -5,7 +5,8 @@ A sample Travel Chat Agent built with Microsoft Agent Framework, Azure OpenAI, a
 ## Features
 
 - **Multi-Agent Architecture**: Main travel agent with specialized sports event booking sub-agent
-- **Persistent Memory**: User preferences stored in Azure Managed Redis
+- **Persistent Memory**: User preferences and conversation history stored in Azure Managed Redis
+- **Conversation Continuity**: All conversations persist across sessions and application restarts
 - **DevUI Integration**: Interactive testing interface
 - **Personalized Recommendations**: Agents use stored user preferences to customize suggestions
 
@@ -60,6 +61,8 @@ AF.AMR.VibeCoded/
 │   └── mock_venues.py        # Venue seating data
 ├── seed.json                 # User preferences seed data
 ├── seeding.py                # Redis seeding logic
+├── conversation_storage.py   # Redis conversation persistence
+├── verify_redis.py           # Redis verification utility
 ├── main.py                   # Application entry point
 └── requirements.txt          # Python dependencies
 ```
@@ -122,14 +125,35 @@ Agent: [Retrieves Shruti's preferences: food tours, kids friendly]
 
 ## Redis Memory
 
-User preferences are seeded from `seed.json` on startup and stored in Redis under the key `"Preferences"`. You can verify this in Redis Insight after running the application.
+### User Preferences
+User preferences are seeded from `seed.json` on startup and stored in Redis under the key `cool-vibes-agent:Preferences`. 
+
+### Conversation History
+All conversations are automatically persisted to Redis under the namespace `cool-vibes-agent:Conversations:`. Each conversation thread has a unique ID and stores:
+- All messages (user and assistant)
+- Message timestamps
+- Agent information
+- Complete conversation context
+
+**Verify Storage**: Run `python verify_redis.py` to check what's stored in Redis.
+
+**Benefits**:
+- Conversations persist across application restarts
+- Users can resume previous conversations
+- Full conversation history available for analysis
+- Thread isolation for concurrent users
 
 ## Testing in Redis Insight
 
 1. Connect to your Azure Managed Redis instance
-2. Look for the key `Preferences`
-3. You should see seeded users: Mark, Shruti
-4. Each user has their stored travel preferences
+2. Look for these keys:
+   - `cool-vibes-agent:Preferences` - User preferences (Mark, Shruti, Jan, Roberto)
+   - `cool-vibes-agent:Conversations:*` - Conversation threads (each with unique ID)
+3. Inspect conversation threads to see:
+   - Complete message history
+   - User and assistant messages
+   - Timestamps and metadata
+4. Each new conversation in DevUI creates a new thread in Redis
 
 ## Notes
 

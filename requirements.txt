@@ -1,5 +1,9 @@
 # Microsoft Agent Framework
 agent-framework
+agent-framework-redis
+
+# Redis Vector Library
+redisvl
 
 # Azure Identity
 azure-identity
@@ -9,3 +13,6 @@ redis
 
 # Environment
 python-dotenv
+
+# Weather API
+requests
