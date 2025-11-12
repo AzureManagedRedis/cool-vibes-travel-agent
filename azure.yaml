@@ -4,6 +4,20 @@ name: cool-vibes-travel-agent
 metadata:
   template: cool-vibes-travel-agent@0.0.1-beta
 
+# Wait for role assignments to propagate after provisioning
+hooks:
+  postprovision:
+    windows:
+      shell: pwsh
+      run: |
+        Write-Host "Waiting 30 seconds for role assignments to propagate..." -ForegroundColor Yellow
+        Start-Sleep -Seconds 30
+    posix:
+      shell: sh
+      run: |
+        echo "Waiting 30 seconds for role assignments to propagate..."
+        sleep 30
+
 services:
   web:
     project: .

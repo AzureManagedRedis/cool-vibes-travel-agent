@@ -243,6 +243,9 @@ module acrAccess './core/security/acr-access.bicep' = {
     containerRegistryId: containerRegistry.outputs.id
     principalId: app.outputs.identityPrincipalId
   }
+  dependsOn: [
+    app
+  ]
 }
 
 // Outputs for azd
