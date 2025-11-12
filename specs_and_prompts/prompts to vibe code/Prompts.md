@@ -7,7 +7,8 @@ We are vibe coding app described in #file:Start.md. Next step is to build a prom
 ## Feature2 - Seeding
 We have a basic overall spec of our application here #file:Start.md . Next step is to build a prompt for Copilot in #file:Feature1.md to implement a seeding of the presistent Azure Managed Redis memory with users and preferences details detailes from #file:seed.json that would replace all previous durable preferences for named users with new set once the app is launched. Please use a key "Preferences" in Redis so we can clearly show in Redis Insight that it works as expected. We are just creating a prompt for this, no code.
 
-## Feature 3
-
 ## Code
 Implement in python this application #file:Start.md with these two features #file:Feature1-AgentsAndTools.md, #file:Feature2-SeedingPreferences.md. Write minimal code, test as you go. Outcome is a functional app using Microsoft Agent Framework, Azure Open AI and Azure Managed Redis. The UI is DevUI from Agent Framework. Let's go!
+
+## Feature3 - saving conversations to AMR
+For the #codebase we'd like to implement #file:Feature3-CachingConversations.md with minimal code chages. The app still needs to follow the guiding principles at #file:Start.md 

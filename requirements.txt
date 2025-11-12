@@ -1,5 +1,6 @@
 # Microsoft Agent Framework
 agent-framework
+agent-framework-redis
 
 # Azure Identity
 azure-identity

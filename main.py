@@ -32,8 +32,9 @@ from agents.ticket_agent import (
     TICKET_AGENT_INSTRUCTIONS
 )
 
-# Import seeding
+# Import seeding and conversation storage
 from seeding import seed_user_preferences
+from conversation_storage import create_chat_message_store_factory
 
 # Configure logging
 logging.basicConfig(
@@ -83,6 +84,17 @@ def main():
     else:
         logger.warning("⚠ Seeding completed with warnings or was skipped")
     
+    # Create chat message store factory for conversation persistence
+    logger.info("Initializing conversation storage with Redis...")
+    try:
+        chat_message_store_factory = create_chat_message_store_factory(redis_url)
+        logger.info("✓ Conversation storage configured")
+        logger.info("  Conversations will be stored under: cool-vibes-agent:Conversations")
+    except Exception as e:
+        logger.error(f"Failed to initialize conversation storage: {e}")
+        logger.warning("⚠ Continuing without conversation persistence")
+        chat_message_store_factory = None
+    
     # Initialize Azure OpenAI Responses client
     logger.info("Initializing Azure OpenAI Responses client...")
     try:
@@ -129,7 +141,8 @@ def main():
         name=TRAVEL_AGENT_NAME,
         description=TRAVEL_AGENT_DESCRIPTION,
         instructions=TRAVEL_AGENT_INSTRUCTIONS,
-        tools=travel_tools
+        tools=travel_tools,
+        chat_message_store_factory=chat_message_store_factory
     )
     logger.info(f"✓ {TRAVEL_AGENT_NAME} created")
     
@@ -139,7 +152,8 @@ def main():
         name=TICKET_AGENT_NAME,
         description=TICKET_AGENT_DESCRIPTION,
         instructions=TICKET_AGENT_INSTRUCTIONS,
-        tools=ticket_tools
+        tools=ticket_tools,
+        chat_message_store_factory=chat_message_store_factory
     )
     logger.info(f"✓ {TICKET_AGENT_NAME} created")
     
