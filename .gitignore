@@ -43,3 +43,10 @@ Thumbs.db
 
 # Redis
 dump.rdb
+
+# Azure Developer CLI
+.azure/
+*.azdenv
+
+# Azure deployment outputs
+.env.azure
