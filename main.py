@@ -55,8 +55,8 @@ def main():
     azure_key = os.getenv('AZURE_OPENAI_API_KEY')
     azure_deployment = os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME')
 
-    setup_observability(enable_sensitive_data=True, applicationinsights_connection_string="InstrumentationKey=ac20080d-e4d8-4e2d-bc32-3f37c9bf3c28;IngestionEndpoint=https://westus2-2.in.applicationinsights.azure.com/;LiveEndpoint=https://westus2.livediagnostics.monitor.azure.com/;ApplicationId=cea5dbb7-3a1d-4704-a179-dc0ec23b1e3e")
-    logger.info("App Insights initialized successfully")
+    # setup_observability(enable_sensitive_data=True, applicationinsights_connection_string="InstrumentationKey=ac20080d-e4d8-4e2d-bc32-3f37c9bf3c28;IngestionEndpoint=https://westus2-2.in.applicationinsights.azure.com/;LiveEndpoint=https://westus2.livediagnostics.monitor.azure.com/;ApplicationId=cea5dbb7-3a1d-4704-a179-dc0ec23b1e3e")
+    # logger.info("App Insights initialized successfully")
     
     if not all([redis_url, azure_endpoint, azure_key, azure_deployment]):
         logger.error("Missing required environment variables. Please check your .env file.")
@@ -69,19 +69,21 @@ def main():
         redis_client = redis.from_url(redis_url, decode_responses=False)
         redis_client.ping()
         logger.info("✓ Connected to Redis successfully")
+        
+        # Set Redis client for user tools
+        set_redis_client(redis_client)
+        
+        # Seed user preferences
+        logger.info("Seeding user preferences from seed.json...")
+        if seed_user_preferences(redis_client):
+            logger.info("✓ User preferences seeded successfully")
+        else:
+            logger.warning("⚠ Seeding completed with warnings or was skipped")
     except Exception as e:
         logger.error(f"Failed to connect to Redis: {e}")
-        return
-    
-    # Set Redis client for user tools
-    set_redis_client(redis_client)
-    
-    # Seed user preferences
-    logger.info("Seeding user preferences from seed.json...")
-    if seed_user_preferences(redis_client):
-        logger.info("✓ User preferences seeded successfully")
-    else:
-        logger.warning("⚠ Seeding completed with warnings or was skipped")
+        logger.warning("⚠ Continuing without Redis - user preferences will not be available")
+        # Don't exit - allow app to start even if Redis is unavailable
+
     
     # Initialize Azure OpenAI Responses client
     logger.info("Initializing Azure OpenAI Responses client...")
@@ -91,8 +93,9 @@ def main():
         os.environ["AZURE_OPENAI_API_KEY"] = azure_key
         os.environ["AZURE_OPENAI_RESPONSES_DEPLOYMENT_NAME"] = azure_deployment
         
-        # Use a supported API version for Responses API (2024-08-01-preview is known to work)
-        azure_api_version = os.getenv('AZURE_OPENAI_API_VERSION', '2024-08-01-preview')
+        # Use a supported API version for Responses/Assistants API
+        # Common supported versions: 2024-05-01-preview, 2024-02-15-preview, 2023-12-01-preview
+        azure_api_version = os.getenv('AZURE_OPENAI_API_VERSION', '2024-05-01-preview')
         os.environ["AZURE_OPENAI_API_VERSION"] = azure_api_version
         
         logger.info(f"Using Azure OpenAI API version: {azure_api_version}")
@@ -156,11 +159,13 @@ def main():
     logger.info("=" * 60)
     
     # Start DevUI with both agents
+    # Use 0.0.0.0 to bind to all interfaces (required for containers)
+    # Disable auto_open in container environments
     serve(
         entities=[travel_agent, ticket_agent],
-        host="localhost",
+        host="0.0.0.0",
         port=8000,
-        auto_open=True
+        auto_open=False
     )
 
 

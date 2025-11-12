@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+ENV/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Azure Dev CLI
+.azure/
+
+# Git
+.git/
+.gitignore
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Documentation
+README.md
+*.md
+LICENSE
+
+# CI/CD
+.github/
+
+# Infrastructure (already in repo)
+infra/
+azure.yaml
+Dockerfile
+.dockerignore
