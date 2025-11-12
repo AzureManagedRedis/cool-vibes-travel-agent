@@ -177,6 +177,27 @@ module containerRegistry './core/host/container-registry.bicep' = {
   }
 }
 
+// User-assigned managed identity for Container App ACR access
+module containerAppIdentity './core/security/managed-identity.bicep' = {
+  name: 'container-app-identity'
+  scope: rg
+  params: {
+    name: 'id-ca-${resourceToken}'
+    location: location
+    tags: tags
+  }
+}
+
+// Grant the user-assigned identity access to pull from ACR
+module acrAccess './core/security/acr-access.bicep' = {
+  name: 'acr-access'
+  scope: rg
+  params: {
+    containerRegistryId: containerRegistry.outputs.id
+    principalId: containerAppIdentity.outputs.principalId
+  }
+}
+
 // The application container
 module app './core/host/container-app.bicep' = {
   name: 'app'
@@ -187,6 +208,7 @@ module app './core/host/container-app.bicep' = {
     tags: union(tags, { 'azd-service-name': 'web' })
     containerAppsEnvironmentId: containerAppsEnvironment.outputs.id
     containerRegistryName: containerRegistry.outputs.name
+    identityName: containerAppIdentity.outputs.name
     containerCpuCoreCount: containerCpuCoreCount
     containerMemory: containerMemory
     containerMaxReplicas: containerMaxReplicas
@@ -233,18 +255,8 @@ module app './core/host/container-app.bicep' = {
     ]
     targetPort: 8000
   }
-}
-
-// Grant Container App managed identity access to pull from ACR
-module acrAccess './core/security/acr-access.bicep' = {
-  name: 'acr-access'
-  scope: rg
-  params: {
-    containerRegistryId: containerRegistry.outputs.id
-    principalId: app.outputs.identityPrincipalId
-  }
   dependsOn: [
-    app
+    acrAccess  // Ensure ACR access is granted before creating container app
   ]
 }
 
@@ -264,7 +276,8 @@ output REDIS_PORT string = redis.outputs.sslPort
 
 output APPLICATIONINSIGHTS_CONNECTION_STRING string = applicationInsights.outputs.connectionString
 
-output SERVICE_WEB_IDENTITY_PRINCIPAL_ID string = app.outputs.identityPrincipalId
+output SERVICE_WEB_IDENTITY_PRINCIPAL_ID string = containerAppIdentity.outputs.principalId
+output SERVICE_WEB_IDENTITY_ID string = containerAppIdentity.outputs.id
 output SERVICE_WEB_NAME string = app.outputs.name
 output SERVICE_WEB_URI string = app.outputs.uri
 output SERVICE_WEB_IMAGE_NAME string = app.outputs.imageName

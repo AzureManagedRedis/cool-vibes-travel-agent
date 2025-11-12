@@ -26,10 +26,6 @@ param env array = []
 @description('The name of the user-assigned identity')
 param identityName string = ''
 
-@description('The type of identity for the resource')
-@allowed(['None', 'SystemAssigned', 'UserAssigned'])
-param identityType string = 'SystemAssigned'
-
 @description('The name of the container image')
 param imageName string = ''
 
@@ -58,7 +54,7 @@ resource app 'Microsoft.App/containerApps@2023-05-01' = {
   location: location
   tags: tags
   identity: {
-    type: identityType
+    type: !empty(identityName) ? 'UserAssigned' : 'SystemAssigned'
     userAssignedIdentities: !empty(identityName) ? { '${userIdentity.id}': {} } : null
   }
   properties: {
@@ -74,7 +70,7 @@ resource app 'Microsoft.App/containerApps@2023-05-01' = {
       registries: !empty(containerRegistryName) ? [
         {
           server: '${containerRegistryName}.azurecr.io'
-          identity: identityType == 'UserAssigned' ? userIdentity.id : 'system'
+          identity: !empty(identityName) ? userIdentity.id : 'system'
         }
       ] : []
       secrets: secrets
@@ -109,7 +105,6 @@ resource app 'Microsoft.App/containerApps@2023-05-01' = {
   }
 }
 
-output identityPrincipalId string = app.identity.principalId
 output name string = app.name
 output uri string = ingressEnabled ? 'https://${app.properties.configuration.ingress.fqdn}' : ''
 output imageName string = imageName
