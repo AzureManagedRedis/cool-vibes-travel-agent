@@ -9,3 +9,6 @@ redis
 
 # Environment
 python-dotenv
+
+# Weather API
+requests

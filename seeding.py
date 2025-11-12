@@ -35,9 +35,9 @@ def seed_user_preferences(redis_client: redis.Redis, seed_file: str = "seed.json
             logger.warning("No user_memories found in seed.json")
             return False
         
-        # Store in Redis under "Preferences" key as a hash
+        # Store in Redis under "cool-vibes-agent:Preferences" key as a hash
         # Each user is a field in the hash with their insights as JSON
-        preferences_key = "Preferences"
+        preferences_key = "cool-vibes-agent:Preferences"
         
         # Clear existing preferences
         redis_client.delete(preferences_key)
@@ -79,7 +79,7 @@ def get_user_preferences(redis_client: redis.Redis, user_name: str) -> list[Dict
         List of user insights/preferences
     """
     try:
-        preferences_key = "Preferences"
+        preferences_key = "cool-vibes-agent:Preferences"
         insights_json = redis_client.hget(preferences_key, user_name)
         
         if insights_json:

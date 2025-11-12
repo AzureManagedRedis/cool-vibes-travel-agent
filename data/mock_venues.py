@@ -89,7 +89,7 @@ SEATING_OPTIONS = {
             "description": "Family-friendly section"
         }
     },
-    "Soldier Field": {
+    "Stamford Bridge": {
         "premium": {
             "sections": ["101", "102", "103"],
             "price_range": "$280-550",
