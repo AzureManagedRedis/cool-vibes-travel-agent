@@ -12,3 +12,6 @@ Implement in python this application #file:Start.md with these two features #fil
 
 ## Feature3 - saving conversations to AMR
 For the #codebase we'd like to implement #file:Feature3-CachingConversations.md with minimal code chages. The app still needs to follow the guiding principles at #file:Start.md 
+
+## Feture4 - dynamic preferences
+Ok, so let's write a prompt into #file:Feature4-DynamicPreferences.md to implement the dynamic context learning with Redis and Agent Framework as showcased here https://github.com/microsoft/agent-framework/blob/main/python/samples/getting_started/context_providers/redis/redis_threads.py. We'd also need to update the #file:seeding.py to vectorize the preferences. Our current OpenAI end point already has a deployment of text-embedding-3-small and text-embedding-ada-002. For demo purposes we also need a new tool reseed_user_preferences that would delete all existing durable preferences in Redis and re-seed new from #file:seed.json . Also make sure to correctly attribute preferences to the current user. Users do not login they just state their name in the conversations. That is ok for demonstration purposes. Let's write the prompt, keep the instructions minimal, clear and without ambiguity.

@@ -2,6 +2,9 @@
 agent-framework
 agent-framework-redis
 
+# Redis Vector Library
+redisvl
+
 # Azure Identity
 azure-identity
 
