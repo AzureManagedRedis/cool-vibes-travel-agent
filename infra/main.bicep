@@ -14,13 +14,22 @@ param location string
 param openAiSkuName string = 'S0'
 
 @description('Azure OpenAI Model Name')
-param openAiModelName string = 'gpt-4'
+param openAiModelName string = 'gpt-4o'
 
 @description('Azure OpenAI Model Version')
-param openAiModelVersion string = 'turbo-2024-04-09'
+param openAiModelVersion string = '2024-11-20'
 
 @description('Azure OpenAI Model Capacity')
 param openAiModelCapacity int = 10
+
+@description('Azure OpenAI Embedding Model Name')
+param openAiEmbeddingModelName string = 'text-embedding-ada-002'
+
+@description('Azure OpenAI Embedding Model Version')
+param openAiEmbeddingModelVersion string = '2'
+
+@description('Azure OpenAI Embedding Model Capacity')
+param openAiEmbeddingModelCapacity int = 10
 
 @description('Azure Managed Redis SKU')
 @allowed([
@@ -116,6 +125,18 @@ module openAi './core/ai/cognitiveservices.bicep' = {
           capacity: openAiModelCapacity
         }
       }
+      {
+        name: openAiEmbeddingModelName
+        model: {
+          format: 'OpenAI'
+          name: openAiEmbeddingModelName
+          version: openAiEmbeddingModelVersion
+        }
+        sku: {
+          name: 'Standard'
+          capacity: openAiEmbeddingModelCapacity
+        }
+      }
     ]
   }
 }
@@ -173,11 +194,19 @@ module app './core/host/container-app.bicep' = {
       }
       {
         name: 'AZURE_OPENAI_API_VERSION'
-        value: '2024-05-01-preview'
+        value: 'preview'
       }
       {
         name: 'AZURE_OPENAI_DEPLOYMENT_NAME'
         value: openAiModelName
+      }
+      {
+        name: 'AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME'
+        value: openAiEmbeddingModelName
+      }
+      {
+        name: 'AZURE_OPENAI_EMBEDDING_API_VERSION'
+        value: '2024-02-15-preview'
       }
     ]
     secrets: [

@@ -139,8 +139,7 @@ def main():
         os.environ["AZURE_OPENAI_RESPONSES_DEPLOYMENT_NAME"] = azure_deployment
         
         # Use a supported API version for Responses/Assistants API
-        # Common supported versions: 2024-05-01-preview, 2024-02-15-preview, 2023-12-01-preview
-        azure_api_version = os.getenv('AZURE_OPENAI_API_VERSION', '2024-05-01-preview')
+        azure_api_version = os.getenv('AZURE_OPENAI_API_VERSION', 'preview')
         os.environ["AZURE_OPENAI_API_VERSION"] = azure_api_version
         
         logger.info(f"Using Azure OpenAI API version: {azure_api_version}")
@@ -202,7 +201,7 @@ def main():
     # Start DevUI with single travel agent
     serve(
         entities=[travel_agent],
-        host="localhost",
+        host="0.0.0.0",
         port=8000,
         auto_open=False
     )
