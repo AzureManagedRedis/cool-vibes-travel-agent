@@ -60,8 +60,6 @@ def main():
     azure_key = os.getenv('AZURE_OPENAI_API_KEY')
     azure_deployment = os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME')
 
-    # setup_observability(enable_sensitive_data=True, applicationinsights_connection_string="InstrumentationKey=ac20080d-e4d8-4e2d-bc32-3f37c9bf3c28;IngestionEndpoint=https://westus2-2.in.applicationinsights.azure.com/;LiveEndpoint=https://westus2.livediagnostics.monitor.azure.com/;ApplicationId=cea5dbb7-3a1d-4704-a179-dc0ec23b1e3e")
-    # logger.info("App Insights initialized successfully")
     app_insights_conn_string = os.getenv('APPLICATIONINSIGHTS_CONNECTION_STRING')
 
     # Setup observability if connection string is provided

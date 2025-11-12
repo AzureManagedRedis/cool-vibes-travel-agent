@@ -89,6 +89,18 @@ module logAnalytics './core/monitor/loganalytics.bicep' = {
   }
 }
 
+// Application Insights for application monitoring
+module applicationInsights './core/monitor/applicationinsights.bicep' = {
+  name: 'applicationinsights'
+  scope: rg
+  params: {
+    name: 'appi-${resourceToken}'
+    location: location
+    tags: tags
+    logAnalyticsWorkspaceId: logAnalytics.outputs.id
+  }
+}
+
 // Container Apps Environment
 module containerAppsEnvironment './core/host/container-apps-environment.bicep' = {
   name: 'container-apps-environment'
@@ -208,6 +220,10 @@ module app './core/host/container-app.bicep' = {
         name: 'AZURE_OPENAI_EMBEDDING_API_VERSION'
         value: '2024-02-15-preview'
       }
+      {
+        name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+        value: applicationInsights.outputs.connectionString
+      }
     ]
     secrets: [
       {
@@ -242,6 +258,8 @@ output AZURE_OPENAI_DEPLOYMENT_NAME string = openAiModelName
 
 output REDIS_HOST string = redis.outputs.hostName
 output REDIS_PORT string = redis.outputs.sslPort
+
+output APPLICATIONINSIGHTS_CONNECTION_STRING string = applicationInsights.outputs.connectionString
 
 output SERVICE_WEB_IDENTITY_PRINCIPAL_ID string = app.outputs.identityPrincipalId
 output SERVICE_WEB_NAME string = app.outputs.name
