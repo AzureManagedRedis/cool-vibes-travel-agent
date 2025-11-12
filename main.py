@@ -199,9 +199,9 @@ def main():
     logger.info("  - 'Hi, I'm Shruti. What family-friendly activities are in Chicago?'")
     logger.info("=" * 60)
     
-    # Start DevUI with both agents
+    # Start DevUI with single travel agent
     serve(
-        entities=[travel_agent, ticket_agent],
+        entities=[travel_agent],
         host="localhost",
         port=8000,
         auto_open=False
