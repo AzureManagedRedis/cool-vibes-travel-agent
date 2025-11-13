@@ -48,13 +48,13 @@ Hi [Name]! Based on your preferences for [preference details], here's what I fou
 - Budget: [budget level]
 
 ** 1 - Weather Outlook:**
-[Temperature and conditions]
+ -- [Temperature and conditions]
 
 ** 2 - Destination Highlights:**
-[Attractions and recommendations aligned with preferences]
+ -- [Attractions and recommendations aligned with preferences]
 
 ** 3 - Upcoming Events:**
-[Sports events or activities if relevant]
+ -- [Sports events or activities if relevant]
 \"\"\"
 
 Use your tools proactively to provide detailed, helpful travel planning assistance.
