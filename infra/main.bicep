@@ -14,13 +14,22 @@ param location string
 param openAiSkuName string = 'S0'
 
 @description('Azure OpenAI Model Name')
-param openAiModelName string = 'gpt-4'
+param openAiModelName string = 'gpt-4o'
 
 @description('Azure OpenAI Model Version')
-param openAiModelVersion string = 'turbo-2024-04-09'
+param openAiModelVersion string = '2024-11-20'
 
 @description('Azure OpenAI Model Capacity')
 param openAiModelCapacity int = 10
+
+@description('Azure OpenAI Embedding Model Name')
+param openAiEmbeddingModelName string = 'text-embedding-ada-002'
+
+@description('Azure OpenAI Embedding Model Version')
+param openAiEmbeddingModelVersion string = '2'
+
+@description('Azure OpenAI Embedding Model Capacity')
+param openAiEmbeddingModelCapacity int = 10
 
 @description('Azure Managed Redis SKU')
 @allowed([
@@ -80,6 +89,18 @@ module logAnalytics './core/monitor/loganalytics.bicep' = {
   }
 }
 
+// Application Insights for application monitoring
+module applicationInsights './core/monitor/applicationinsights.bicep' = {
+  name: 'applicationinsights'
+  scope: rg
+  params: {
+    name: 'appi-${resourceToken}'
+    location: location
+    tags: tags
+    logAnalyticsWorkspaceId: logAnalytics.outputs.id
+  }
+}
+
 // Container Apps Environment
 module containerAppsEnvironment './core/host/container-apps-environment.bicep' = {
   name: 'container-apps-environment'
@@ -116,6 +137,18 @@ module openAi './core/ai/cognitiveservices.bicep' = {
           capacity: openAiModelCapacity
         }
       }
+      {
+        name: openAiEmbeddingModelName
+        model: {
+          format: 'OpenAI'
+          name: openAiEmbeddingModelName
+          version: openAiEmbeddingModelVersion
+        }
+        sku: {
+          name: 'Standard'
+          capacity: openAiEmbeddingModelCapacity
+        }
+      }
     ]
   }
 }
@@ -144,6 +177,27 @@ module containerRegistry './core/host/container-registry.bicep' = {
   }
 }
 
+// User-assigned managed identity for Container App ACR access
+module containerAppIdentity './core/security/managed-identity.bicep' = {
+  name: 'container-app-identity'
+  scope: rg
+  params: {
+    name: 'id-ca-${resourceToken}'
+    location: location
+    tags: tags
+  }
+}
+
+// Grant the user-assigned identity access to pull from ACR
+module acrAccess './core/security/acr-access.bicep' = {
+  name: 'acr-access'
+  scope: rg
+  params: {
+    containerRegistryId: containerRegistry.outputs.id
+    principalId: containerAppIdentity.outputs.principalId
+  }
+}
+
 // The application container
 module app './core/host/container-app.bicep' = {
   name: 'app'
@@ -154,6 +208,7 @@ module app './core/host/container-app.bicep' = {
     tags: union(tags, { 'azd-service-name': 'web' })
     containerAppsEnvironmentId: containerAppsEnvironment.outputs.id
     containerRegistryName: containerRegistry.outputs.name
+    identityName: containerAppIdentity.outputs.name
     containerCpuCoreCount: containerCpuCoreCount
     containerMemory: containerMemory
     containerMaxReplicas: containerMaxReplicas
@@ -173,11 +228,23 @@ module app './core/host/container-app.bicep' = {
       }
       {
         name: 'AZURE_OPENAI_API_VERSION'
-        value: '2024-05-01-preview'
+        value: 'preview'
       }
       {
         name: 'AZURE_OPENAI_DEPLOYMENT_NAME'
         value: openAiModelName
+      }
+      {
+        name: 'AZURE_OPENAI_EMBEDDING_DEPLOYMENT_NAME'
+        value: openAiEmbeddingModelName
+      }
+      {
+        name: 'AZURE_OPENAI_EMBEDDING_API_VERSION'
+        value: '2024-02-15-preview'
+      }
+      {
+        name: 'APPLICATIONINSIGHTS_CONNECTION_STRING'
+        value: applicationInsights.outputs.connectionString
       }
     ]
     secrets: [
@@ -188,16 +255,9 @@ module app './core/host/container-app.bicep' = {
     ]
     targetPort: 8000
   }
-}
-
-// Grant Container App managed identity access to pull from ACR
-module acrAccess './core/security/acr-access.bicep' = {
-  name: 'acr-access'
-  scope: rg
-  params: {
-    containerRegistryId: containerRegistry.outputs.id
-    principalId: app.outputs.identityPrincipalId
-  }
+  dependsOn: [
+    acrAccess  // Ensure ACR access is granted before creating container app
+  ]
 }
 
 // Outputs for azd
@@ -214,7 +274,10 @@ output AZURE_OPENAI_DEPLOYMENT_NAME string = openAiModelName
 output REDIS_HOST string = redis.outputs.hostName
 output REDIS_PORT string = redis.outputs.sslPort
 
-output SERVICE_WEB_IDENTITY_PRINCIPAL_ID string = app.outputs.identityPrincipalId
+output APPLICATIONINSIGHTS_CONNECTION_STRING string = applicationInsights.outputs.connectionString
+
+output SERVICE_WEB_IDENTITY_PRINCIPAL_ID string = containerAppIdentity.outputs.principalId
+output SERVICE_WEB_IDENTITY_ID string = containerAppIdentity.outputs.id
 output SERVICE_WEB_NAME string = app.outputs.name
 output SERVICE_WEB_URI string = app.outputs.uri
 output SERVICE_WEB_IMAGE_NAME string = app.outputs.imageName

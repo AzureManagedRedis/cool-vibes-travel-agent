@@ -2,6 +2,9 @@
 agent-framework
 agent-framework-redis
 
+# Azure Monitoring
+azure-monitor-opentelemetry-exporter>=1.0.0b41
+
 # Redis Vector Library
 redisvl
 

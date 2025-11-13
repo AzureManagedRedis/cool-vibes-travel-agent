@@ -60,8 +60,6 @@ def main():
     azure_key = os.getenv('AZURE_OPENAI_API_KEY')
     azure_deployment = os.getenv('AZURE_OPENAI_DEPLOYMENT_NAME')
 
-    # setup_observability(enable_sensitive_data=True, applicationinsights_connection_string="InstrumentationKey=ac20080d-e4d8-4e2d-bc32-3f37c9bf3c28;IngestionEndpoint=https://westus2-2.in.applicationinsights.azure.com/;LiveEndpoint=https://westus2.livediagnostics.monitor.azure.com/;ApplicationId=cea5dbb7-3a1d-4704-a179-dc0ec23b1e3e")
-    # logger.info("App Insights initialized successfully")
     app_insights_conn_string = os.getenv('APPLICATIONINSIGHTS_CONNECTION_STRING')
 
     # Setup observability if connection string is provided
@@ -139,8 +137,7 @@ def main():
         os.environ["AZURE_OPENAI_RESPONSES_DEPLOYMENT_NAME"] = azure_deployment
         
         # Use a supported API version for Responses/Assistants API
-        # Common supported versions: 2024-05-01-preview, 2024-02-15-preview, 2023-12-01-preview
-        azure_api_version = os.getenv('AZURE_OPENAI_API_VERSION', '2024-05-01-preview')
+        azure_api_version = os.getenv('AZURE_OPENAI_API_VERSION', 'preview')
         os.environ["AZURE_OPENAI_API_VERSION"] = azure_api_version
         
         logger.info(f"Using Azure OpenAI API version: {azure_api_version}")
@@ -202,7 +199,7 @@ def main():
     # Start DevUI with single travel agent
     serve(
         entities=[travel_agent],
-        host="localhost",
+        host="0.0.0.0",
         port=8000,
         auto_open=False
     )
