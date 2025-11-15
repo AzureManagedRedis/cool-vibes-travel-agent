@@ -1,23 +1,83 @@
 # Travel Chat Agent with Azure Managed Redis
 
-A sample Travel Chat Agent built with Microsoft Agent Framework, Azure OpenAI, and Azure Managed Redis demonstrating multi-agent architecture with persistent memory.
+A sample Travel Chat Agent built with Microsoft Agent Framework, Azure OpenAI, and Azure Managed Redis demonstrating intelligent conversation management with persistent memory and semantic preference retrieval.
 
 ## Features
 
-- **Multi-Agent Architecture**: Main travel agent with specialized sports event booking sub-agent
-- **Persistent Memory**: User preferences and conversation history stored in Azure Managed Redis
-- **Conversation Continuity**: All conversations persist across sessions and application restarts
+- **Intelligent Travel Agent**: Single unified agent handling destination research, weather, flights, accommodations, and sports event booking
+- **Persistent Conversation History**: All conversations stored in Azure Managed Redis and persist across sessions (Feature 3)
+- **Semantic Preference Retrieval**: Vector-based preference storage with semantic search capabilities (Feature 4)
+- **Dynamic Learning**: Agent can learn and remember new user preferences during conversations
 - **DevUI Integration**: Interactive testing interface
-- **Personalized Recommendations**: Agents use stored user preferences to customize suggestions
+- **Personalized Recommendations**: Agent uses stored user preferences to customize suggestions
 
-## Prerequisites
+## Quick Start
 
+Choose your deployment method:
+
+### Option 1: Deploy to Azure (Recommended)
+
+Deploy the entire application with all required Azure resources automatically provisioned:
+
+**Prerequisites:**
+- [Azure Developer CLI (azd)](https://learn.microsoft.com/azure/developer/azure-developer-cli/install-azd)
+- Azure subscription with appropriate permissions
 - Python 3.10 or higher
-- Azure Managed Redis instance
-- Azure OpenAI deployment
+
+**Steps:**
+
+1. **Clone the repository**
+```powershell
+git clone https://github.com/AzureManagedRedis/cool-vibes-travel-agent.git
+cd cool-vibes-travel-agent
+```
+
+2. **Login to Azure**
+```powershell
+azd auth login
+```
+
+3. **Deploy everything with one command**
+```powershell
+azd up
+```
+
+This will automatically provision:
+- Azure Managed Redis instance (with RediSearch module)
+- Azure OpenAI service with required deployments (GPT-4o, text-embedding-3-small)
+- Azure Container Apps for hosting the agent
+- Application Insights for observability
+- All necessary networking and security configurations
+
+4. **Access your deployed application**
+
+After deployment completes, `azd` will output the application URL. Open it in your browser to interact with the travel agent.
+
+**Changing deployment settings:**
+```powershell
+# Change Azure region
+azd env set AZURE_LOCATION eastus
+
+# Set environment name
+azd up -e production
+
+# View all environment variables
+azd env get-values
+```
+
+### Option 2: Run Locally (Development)
+
+Run the application locally with your own Azure resources:
+
+**Prerequisites:**
+- Python 3.10 or higher
+- Azure Managed Redis instance (with RediSearch module enabled)
+- Azure OpenAI deployment with:
+  - GPT-4o or GPT-4 model deployment
+  - text-embedding-3-small or text-embedding-ada-002 deployment
 - Valid Azure credentials
 
-## Setup
+**Steps:**
 
 1. **Install Dependencies**
 ```powershell
@@ -33,7 +93,9 @@ REDIS_URL=redis://:your_password@your-redis-instance.redis.cache.windows.net:638
 AZURE_OPENAI_ENDPOINT=https://your-openai-instance.openai.azure.com/
 AZURE_OPENAI_API_KEY=your_api_key_here
 AZURE_OPENAI_API_VERSION=2024-02-15-preview
-AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4
+AZURE_OPENAI_DEPLOYMENT_NAME=gpt-4o
+AZURE_OPENAI_EMBEDDING_DEPLOYMENT=text-embedding-3-small
+AZURE_OPENAI_EMBEDDING_API_VERSION=2023-05-15
 ```
 
 3. **Run the Application**
@@ -43,28 +105,32 @@ python main.py
 
 4. **Access DevUI**
 
-Open your browser to `http://localhost:8000` to interact with the agents.
+Open your browser to `http://localhost:8000` to interact with the agent.
 
 ## Project Structure
 
 ```
 AF.AMR.VibeCoded/
 ├── agents/
-│   ├── travel_agent.py      # Main travel agent configuration
-│   └── ticket_agent.py       # Sports event booking agent
+│   └── travel_agent.py          # Unified travel agent configuration
 ├── tools/
-│   ├── user_tools.py         # User preference retrieval
-│   ├── travel_tools.py       # Travel research tools
-│   └── sports_tools.py       # Sports event tools
+│   ├── user_tools.py            # User preference tools (semantic + learning)
+│   ├── travel_tools.py          # Travel research tools
+│   └── sports_tools.py          # Sports event tools
 ├── data/
-│   ├── mock_events.py        # Sports event data
-│   └── mock_venues.py        # Venue seating data
-├── seed.json                 # User preferences seed data
-├── seeding.py                # Redis seeding logic
-├── conversation_storage.py   # Redis conversation persistence
-├── verify_redis.py           # Redis verification utility
-├── main.py                   # Application entry point
-└── requirements.txt          # Python dependencies
+│   ├── sample_sport_events.py   # Sports event data
+│   └── sample_sport_venues.py   # Venue seating data
+├── specs_and_prompts/specs/
+│   ├── Feature3-CachingConversations.md  # Conversation persistence spec
+│   └── Feature4-DynamicPreferences.md     # Semantic preferences spec
+├── seed.json                    # User preferences seed data
+├── seeding.py                   # Redis seeding with vector embeddings
+├── context_provider.py          # Vector search configuration
+├── conversation_storage.py      # Redis conversation persistence
+├── verify_redis.py              # Redis verification utility
+├── main.py                      # Application entry point
+├── azure.yaml                   # Azure Developer CLI configuration
+└── requirements.txt             # Python dependencies
 ```
 
 ## Usage Examples
@@ -72,7 +138,7 @@ AF.AMR.VibeCoded/
 ### Example 1: User with stored preferences
 ```
 User: Hi, I'm Mark. Can you help me plan a trip?
-Agent: [Retrieves Mark's preferences: boutique hotels, professional sports]
+Agent: [Retrieves Mark's preferences via semantic search from Redis vectors]
       Hello Mark! I'd be happy to help. I see you enjoy boutique hotels 
       and professional sports events...
 ```
@@ -80,37 +146,44 @@ Agent: [Retrieves Mark's preferences: boutique hotels, professional sports]
 ### Example 2: Sports event booking
 ```
 User: I'm traveling to New York in November and want to catch a basketball game
-Agent: [Delegates to ticket-purchase-agent]
-      I found several NBA games in November! The Knicks vs Lakers on 
+Agent: I found several NBA games in November! The Knicks vs Lakers on 
       November 15th at Madison Square Garden. Based on your preferences 
       for boutique experiences, I recommend premium seating...
 ```
 
-### Example 3: Family travel
+### Example 3: Dynamic preference learning
 ```
-User: Hi, I'm Shruti. What are some family-friendly activities in Chicago?
-Agent: [Retrieves Shruti's preferences: food tours, kids friendly]
-      Hello Shruti! For family-friendly fun in Chicago, I recommend...
+User: I also prefer aisle seats on flights
+Agent: [Calls remember_preference tool to store with vector embedding]
+      Got it! I'll remember that you prefer aisle seats for future recommendations.
 ```
 
-## Agents
+### Example 4: Semantic preference retrieval
+```
+User: What do you know about my hotel preferences?
+Agent: [Uses get_semantic_preferences with query "hotels"]
+      Based on what I know, you enjoy boutique hotels with unique character
+      and prefer staying in walkable neighborhoods...
+```
 
-### Travel-Agent (Primary)
+## Architecture
+
+### Agent
+**Travel-Agent (Unified)**
 - Destination research
 - Weather information
 - Flight and accommodation search
-- General booking assistance
-- Delegates to ticket-purchase-agent for sports events
+- Sports event booking
+- General travel assistance
+- Preference learning and retrieval
 
-### Ticket-Purchase-Agent (Sub-agent)
-- Professional sports event research
-- Personalized seating recommendations
-- Simulated ticket booking
+### Tools
 
-## Tools
-
-**Shared:**
-- `user_preferences` - Retrieve stored user preferences from Redis
+**User Preference Tools:**
+- `user_preferences` - Retrieve all stored preferences from Redis
+- `get_semantic_preferences` - Semantic search for relevant preferences
+- `remember_preference` - Learn and store new preferences with embeddings
+- `reseed_user_preferences` - Reset preferences from seed.json (demo)
 
 **Travel Tools:**
 - `research_weather` - Get weather information
@@ -123,19 +196,14 @@ Agent: [Retrieves Shruti's preferences: food tours, kids friendly]
 - `find_events` - Search professional sports events
 - `make_purchase` - Book tickets (simulated)
 
-## Redis Memory
+## Redis Memory Storage
 
-### User Preferences
-User preferences are seeded from `seed.json` on startup and stored in Redis under the key `cool-vibes-agent:Preferences`. 
-
-### Conversation History
-All conversations are automatically persisted to Redis under the namespace `cool-vibes-agent:Conversations:`. Each conversation thread has a unique ID and stores:
+### Feature 3: Conversation History
+All conversations are automatically persisted to Redis under the namespace `cool-vibes-agent:Conversations:`. Each conversation thread stores:
 - All messages (user and assistant)
 - Message timestamps
 - Agent information
 - Complete conversation context
-
-**Verify Storage**: Run `python verify_redis.py` to check what's stored in Redis.
 
 **Benefits**:
 - Conversations persist across application restarts
@@ -143,23 +211,53 @@ All conversations are automatically persisted to Redis under the namespace `cool
 - Full conversation history available for analysis
 - Thread isolation for concurrent users
 
+### Feature 4: Semantic Preferences (Vector Search)
+User preferences are stored with vector embeddings in Redis under keys like `cool-vibes-agent:UserPref:{user_name}:{id}`. 
+
+**Storage structure**:
+- Text content of the preference
+- 1536-dimensional vector embedding (text-embedding-3-small)
+- Metadata (user, timestamp, source)
+
+**Capabilities**:
+- **Semantic retrieval**: Find preferences by meaning, not just keywords
+- **Dynamic learning**: Agent can learn new preferences during conversations
+- **Context-aware**: Retrieve only relevant preferences for specific queries
+- **Powered by RediSearch**: Uses HNSW vector similarity search
+
+**Example**:
+- Query: "What hotels does Mark like?"
+- Retrieves: "Likes boutique hotels" (even without exact word match)
+- Uses: Vector similarity with 85% threshold
+
+**Verification**: Run `python verify_redis.py` to check stored data in Redis.
+
 ## Testing in Redis Insight
 
 1. Connect to your Azure Managed Redis instance
-2. Look for these keys:
-   - `cool-vibes-agent:Preferences` - User preferences (Mark, Shruti, Jan, Roberto)
-   - `cool-vibes-agent:Conversations:*` - Conversation threads (each with unique ID)
-3. Inspect conversation threads to see:
+2. Look for these key patterns:
+   - `cool-vibes-agent:UserPref:*` - User preferences with vector embeddings
+   - `cool-vibes-agent:Conversations:*` - Conversation threads
+3. Inspect user preferences:
+   - Each key is a hash with: `content`, `vector`, `user`, `timestamp`, `source`
+   - Vector field contains 1536-dimensional embedding
+4. Inspect conversation threads to see:
    - Complete message history
    - User and assistant messages
    - Timestamps and metadata
-4. Each new conversation in DevUI creates a new thread in Redis
+5. Run RediSearch queries:
+   - `FT.SEARCH idx:user_preferences "*"` - View all indexed preferences
+   - `FT.INFO idx:user_preferences` - View index details
+6. Each new conversation in DevUI creates a new thread in Redis
 
 ## Notes
 
-- Sports event data and ticket purchases are simulated with hardcoded data
+- Sports event data and ticket purchases are simulated with sample data
 - This is a demonstration application showcasing Agent Framework capabilities
-- In production, tools would connect to real APIs
+- **Feature 3**: Demonstrates persistent conversation storage in Redis
+- **Feature 4**: Showcases Redis vector search and semantic retrieval capabilities
+- RediSearch module required for vector similarity search
+- In production, tools would connect to real travel and event APIs
 
 ## Troubleshooting
 
@@ -167,15 +265,30 @@ All conversations are automatically persisted to Redis under the namespace `cool
 - Verify your REDIS_URL is correct
 - Check firewall rules allow your IP
 - Ensure SSL is enabled in connection string
+- For Azure deployment: Resources are auto-configured by `azd up`
 
 **Azure OpenAI Error:**
 - Verify endpoint and API key are correct
 - Check your deployment name matches
 - Ensure you have quota available
+- For rate limits: Consider implementing retry logic or increasing quota
+
+**Vector Search Not Working:**
+- Ensure RediSearch module is enabled in your Redis instance
+- Check embedding deployment is configured correctly
+- Verify `AZURE_OPENAI_EMBEDDING_DEPLOYMENT` environment variable
+- Azure Managed Redis Enterprise tier required for RediSearch
 
 **Import Errors:**
-- Run `pip install -r requirements.txt`
+- Run `pip install --upgrade -r requirements.txt`
 - Ensure Python 3.10+ is being used
+- Check virtual environment is activated
+
+**AZD Deployment Issues:**
+- Run `azd auth login` to ensure you're authenticated
+- Check you have permissions in the target subscription
+- Verify the selected Azure region supports all required services
+- Use `azd env get-values` to inspect environment configuration
 
 ## License
 
