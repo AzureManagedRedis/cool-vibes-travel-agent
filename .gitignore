@@ -50,3 +50,4 @@ dump.rdb
 
 # Azure deployment outputs
 .env.azure
+specs_and_prompts/SEMANTIC_CACHING_RESEARCH.md
