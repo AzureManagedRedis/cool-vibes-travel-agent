@@ -21,6 +21,8 @@ def create_chat_message_store(thread_id: str, redis_url: str = None):
         redis_url = os.getenv('REDIS_URL')
     
     try:
+        # AMR/AF: Create and return the RedisChatMessageStore instance
+        # Ignite Code Location
         store = RedisChatMessageStore(
             redis_url=redis_url,
             thread_id=thread_id,

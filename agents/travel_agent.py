@@ -4,6 +4,9 @@ TRAVEL_AGENT_NAME = "cool-vibes-travel-agent"
 
 TRAVEL_AGENT_DESCRIPTION = "Comprehensive travel planning agent with research and booking assistance"
 
+# AMR/AF: Agent definition section
+# Ignite Code Location
+
 TRAVEL_AGENT_INSTRUCTIONS = """
 You are an expert travel planning agent with access to comprehensive research and booking tools.
 
@@ -32,11 +35,17 @@ When providing destination research, ALWAYS structure your response to include:
 
 3. **Destination Overview**
    - Key attractions and cultural highlights
+        - attraction 1
+        - attraction 2
    - Local experiences aligned with user preferences
 
 4. **Events & Activities** (if sports events are found)
    - List of upcoming professional sports games/events
+        - event 1
+        - event 2
    - Venue information
+
+Make sure to ALWAYS outdent the sections properly for clarity.
 
 Example format for initial destination response:
 \"\"\"

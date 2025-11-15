@@ -1,4 +1,4 @@
-"""Mock sports events data for different cities."""
+"""Sample sports events data for different cities."""
 
 EVENTS_DATA = {
     "new york": [
@@ -111,7 +111,7 @@ EVENTS_DATA = {
     "london": [
         {
             "id": "chelsea_barcelona_nov25",
-            "sport": "Premier League",
+            "sport": "UEFA Champions League",
             "teams": "Chelsea vs Barcelona",
             "venue": "Stamford Bridge",
             "date": "2025-11-25",
@@ -121,10 +121,10 @@ EVENTS_DATA = {
         {
             "id": "chelsea_manchesterunited_nov30",
             "sport": "Premier League",
-            "teams": "Chelsea vs Manchester United",
+            "teams": "Chelsea vs Arsenal",
             "venue": "Stamford Bridge",
             "date": "2025-11-30",
-            "time": "11:30",
+            "time": "08:30",
             "city": "London"
         },
         {
@@ -133,7 +133,7 @@ EVENTS_DATA = {
             "teams": "Chelsea vs Everton",
             "venue": "Stamford Bridge",
             "date": "2025-12-13",
-            "time": "10:00",
+            "time": "07:00",
             "city": "London"
         },
          {
@@ -142,7 +142,7 @@ EVENTS_DATA = {
             "teams": "Chelsea vs Aston Villa",
             "venue": "Stamford Bridge",
             "date": "2025-12-27",
-            "time": "12:30",
+            "time": "09:30",
             "city": "London"
   }  
     ]

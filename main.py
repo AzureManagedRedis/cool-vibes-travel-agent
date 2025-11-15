@@ -10,6 +10,8 @@ from agent_framework.devui import serve
 from azure.identity import AzureCliCredential
 from agent_framework.observability import get_tracer, setup_observability
 
+# AMR/AF: Tools and Agent section
+# Ignite Code Location
 # Import tools
 from tools.user_tools import (
     user_preferences,

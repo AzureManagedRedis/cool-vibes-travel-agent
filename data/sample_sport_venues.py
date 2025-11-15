@@ -1,4 +1,4 @@
-"""Mock venue and seating data."""
+"""Sample venue and seating data."""
 
 SEATING_OPTIONS = {
     "Madison Square Garden": {

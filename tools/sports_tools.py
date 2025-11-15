@@ -2,8 +2,8 @@
 from typing import Annotated
 import random
 from datetime import datetime
-from data.mock_events import EVENTS_DATA
-from data.mock_venues import SEATING_OPTIONS
+from data.sample_sport_events import EVENTS_DATA
+from data.sample_sport_venues import SEATING_OPTIONS
 
 
 def find_events(
