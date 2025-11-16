@@ -153,6 +153,15 @@ async def seed_user_preferences_with_vectors(
             redis_client.delete(*existing_keys)
             logger.info(f"Deleted {len(existing_keys)} existing UserPref keys before seeding")
         
+        # Delete all conversation history
+        conv_pattern = "cool-vibes-agent:Conversations:*"
+        conv_keys = redis_client.keys(conv_pattern)
+        if conv_keys:
+            redis_client.delete(*conv_keys)
+            logger.info(f"Deleted {len(conv_keys)} existing conversation keys before seeding")
+        else:
+            logger.info("No existing conversations to delete")
+        
         # Try to create the index (will skip if exists)
         try:
             index.create(overwrite=False)
