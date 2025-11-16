@@ -2,7 +2,7 @@
 
 A sample Travel Chat Agent built with Microsoft Agent Framework, Azure OpenAI, and Azure Managed Redis demonstrating intelligent conversation management with persistent memory and semantic preference retrieval.
 
-This sample was fully "vibe coded" using GitHub Copilot Agent. All specifications and prompts are saves in the spects_and_prompts folder.
+This sample was fully "vibe coded" using GitHub Copilot Agent. All specifications and prompts available in the [specs_and_prompts](https://github.com/AzureManagedRedis/cool-vibes-travel-agent/tree/main/specs_and_prompts) folder.
 
 ## Features
 
@@ -295,7 +295,7 @@ User preferences are stored with vector embeddings in Redis under keys like `coo
 - Use `azd env get-values` to inspect environment configuration
 
 ## Credits
- - Jan Kalis, prompts and vibe coding
+ - Jan Kalis, specfications, prompts and vibe coding
  - Jason Wang, AZD configuration
 
 ## License
