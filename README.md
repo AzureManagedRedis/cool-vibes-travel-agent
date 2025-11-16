@@ -2,7 +2,7 @@
 
 A sample Travel Chat Agent built with Microsoft Agent Framework, Azure OpenAI, and Azure Managed Redis demonstrating intelligent conversation management with persistent memory and semantic preference retrieval.
 
-This sample was fully "vibe coded" using GitHub Copilot Agent. All specifications and prompts available in the [specs_and_prompts](https://github.com/AzureManagedRedis/cool-vibes-travel-agent/tree/main/specs_and_prompts) folder.
+This sample was fully "vibe coded" using GitHub Copilot Agent. All specifications and prompts available in the [specs_and_prompts](./specs_and_prompts) folder.
 
 ## Features
 
