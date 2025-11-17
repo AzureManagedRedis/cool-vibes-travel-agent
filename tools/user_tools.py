@@ -31,31 +31,8 @@ def set_vectorizer(vectorizer):
     _vectorizer = vectorizer
 
 
-def user_preferences(user_name: Annotated[str, "The name of the user to retrieve preferences for"]) -> str:
-    """
-    Retrieve user preferences from long-term Redis memory.
-    
-    Args:
-        user_name: The name of the user
-        
-    Returns:
-        A formatted string of user preferences
-    """
-    if not _redis_client:
-        return "User preferences service is not available."
-    
-    insights = get_user_preferences(_redis_client, user_name)
-    
-    if not insights:
-        return f"No stored preferences found for {user_name}. This might be a new user."
-    
-    # Format insights into a readable string
-    preferences_list = [insight.get('insight', '') for insight in insights if 'insight' in insight]
-    
-    if preferences_list:
-        return f"User {user_name}'s preferences:\n" + "\n".join(f"- {pref}" for pref in preferences_list)
-    else:
-        return f"No specific preferences found for {user_name}."
+# user_preferences() removed - RedisProvider now automatically injects preferences
+# No need for explicit tool call since context is always available
 
 
 async def remember_preference(
@@ -63,8 +40,9 @@ async def remember_preference(
     preference: Annotated[str, "The preference to remember for this user"]
 ) -> str:
     """
-    Store a new preference for a user with semantic search capabilities.
+    Store a new preference for a user directly into RedisProvider's context store.
     This allows the agent to learn new preferences during conversations.
+    Stored preferences will be automatically injected in future conversations.
     
     Args:
         user_name: The name of the user
@@ -73,87 +51,123 @@ async def remember_preference(
     Returns:
         Confirmation message
     """
-    if not _search_index or not _vectorizer:
+    if not _redis_client or not _vectorizer:
         return "❌ Preference storage service is not available."
     
     try:
-        from context_provider import store_preference
+        from datetime import datetime
+        import uuid
+        import numpy as np
         
-        # Store preference with vector embedding
-        await store_preference(
-            index=_search_index,
-            vectorizer=_vectorizer,
-            user_name=user_name,
-            preference_text=preference,
-            source="learned"
-        )
+        # Generate embedding for the preference
+        embedding = _vectorizer.embed(preference)
+        embedding_bytes = np.array(embedding, dtype=np.float32).tobytes()
         
-        logger.info(f"Stored new preference for {user_name}: {preference}")
+        # Create unique key in RedisProvider's Context namespace
+        doc_id = str(uuid.uuid4())[:8]
+        key = f"cool-vibes-agent-vnext:Context:{user_name}:{doc_id}"
+        
+        # Store in same format as RedisProvider expects
+        _redis_client.hset(key, mapping={
+            b"content": preference.encode('utf-8'),
+            b"role": b"user",
+            b"mime_type": b"text/plain",
+            b"user_id": user_name.encode('utf-8'),
+            b"application_id": b"cool-vibes-travel-agent-vnext",
+            b"agent_id": f"agent_{user_name.lower()}".encode('utf-8'),
+            b"embedding": embedding_bytes,
+            b"timestamp": datetime.utcnow().isoformat().encode('utf-8'),
+            b"source": b"learned"
+        })
+        
+        logger.info(f"Stored new preference for {user_name} in Context store: {preference}")
         return f"✅ I'll remember that {user_name} {preference}"
         
     except Exception as e:
-        logger.error(f"Failed to store preference: {e}")
+        logger.error(f"Failed to store preference: {e}", exc_info=True)
         return f"❌ Sorry, I couldn't store that preference: {str(e)}"
 
 
 async def get_semantic_preferences(
     user_name: Annotated[str, "The name of the user"],
-    query: Annotated[Optional[str], "Optional query to find relevant preferences"] = None
+    query: Annotated[str, "Specific query to find relevant preferences for (e.g., 'hotels in Paris', 'food preferences')"]
 ) -> str:
     """
-    Retrieve user preferences using semantic search.
-    If query is provided, returns preferences most relevant to the query.
+    Search user preferences using semantic search with a specific query.
+    Use this when you need to find preferences relevant to a particular topic or context.
+    Note: General preferences are automatically provided, use this only for targeted searches.
     
     Args:
         user_name: The name of the user
-        query: Optional semantic query to filter preferences
+        query: Specific query to search preferences (required)
         
     Returns:
-        Formatted string of user preferences
+        Formatted string of relevant preferences
     """
-    if not _search_index or not _vectorizer:
-        # Fallback to static preferences
-        return user_preferences(user_name)
+    if not _redis_client or not _vectorizer:
+        return "❌ Semantic search service is not available."
     
     try:
-        from context_provider import retrieve_preferences
+        import numpy as np
         
-        results = await retrieve_preferences(
-            index=_search_index,
-            vectorizer=_vectorizer,
-            user_name=user_name,
-            query_text=query,
-            top_k=5
-        )
+        # Generate embedding for the query
+        query_embedding = _vectorizer.embed(query)
         
-        if not results:
+        # Search in Context namespace using Redis vector search
+        # This searches the same data RedisProvider uses
+        pattern = f"cool-vibes-agent-vnext:Context:{user_name}:*"
+        keys = _redis_client.keys(pattern)
+        
+        if not keys:
             return f"No preferences found for {user_name}."
+        
+        # Calculate similarity scores
+        results = []
+        for key in keys:
+            doc = _redis_client.hgetall(key)
+            if b"embedding" in doc and b"content" in doc:
+                # Decode embedding
+                stored_embedding = np.frombuffer(doc[b"embedding"], dtype=np.float32)
+                
+                # Calculate cosine similarity
+                similarity = np.dot(query_embedding, stored_embedding) / (
+                    np.linalg.norm(query_embedding) * np.linalg.norm(stored_embedding)
+                )
+                
+                results.append({
+                    "content": doc[b"content"].decode('utf-8'),
+                    "source": doc.get(b"source", b"unknown").decode('utf-8'),
+                    "similarity": similarity
+                })
+        
+        # Sort by similarity and take top 5
+        results.sort(key=lambda x: x["similarity"], reverse=True)
+        top_results = results[:5]
+        
+        if not top_results:
+            return f"No preferences found for {user_name} matching '{query}'."
         
         # Format results
         prefs = []
-        for doc in results:
-            pref_text = doc.get('preference_text', '')
-            source = doc.get('source', 'unknown')
-            if pref_text:
-                prefs.append(f"- {pref_text} (from {source})")
+        for doc in top_results:
+            content = doc['content']
+            source = doc['source']
+            score = doc['similarity']
+            prefs.append(f"- {content} (from {source}, relevance: {score:.2f})")
         
-        if query:
-            header = f"User {user_name}'s preferences relevant to '{query}':\n"
-        else:
-            header = f"User {user_name}'s preferences:\n"
-        
+        header = f"User {user_name}'s preferences relevant to '{query}':\n"
         return header + "\n".join(prefs)
         
     except Exception as e:
-        logger.error(f"Failed to retrieve semantic preferences: {e}")
-        # Fallback to static preferences
-        return user_preferences(user_name)
+        logger.error(f"Failed to retrieve semantic preferences: {e}", exc_info=True)
+        return f"❌ Error searching preferences: {str(e)}"
 
 
 async def reseed_user_preferences() -> str:
     """
-    Delete all existing vectorized user preferences from Redis and re-seed from seed.json.
+    Delete all existing context from RedisProvider and re-seed from seed.json.
     This will reset all preferences to the initial seed data.
+    Note: This affects the same data RedisProvider uses for automatic context injection.
     
     Returns:
         Confirmation message
@@ -162,39 +176,50 @@ async def reseed_user_preferences() -> str:
         if not _redis_client:
             return "❌ Cannot reseed - Redis client not available"
         
-        logger.info("Starting reseed operation...")
+        logger.info("Starting reseed operation for RedisProvider context...")
         
-        # Delete all preference keys
-        pattern = "cool-vibes-agent:UserPref:*"
+        # Delete all Context keys (what RedisProvider uses)
+        pattern = "cool-vibes-agent-vnext:Context:*"
         keys = _redis_client.keys(pattern)
         if keys:
             _redis_client.delete(*keys)
-            logger.info(f"Deleted {len(keys)} preference keys")
+            logger.info(f"Deleted {len(keys)} context keys")
         
-        # Try to drop the RediSearch index
+        # Try to drop the RediSearch index used by RedisProvider
         try:
-            _redis_client.execute_command('FT.DROPINDEX', 'user_preferences_idx', 'DD')
-            logger.info("Dropped RediSearch index")
+            _redis_client.execute_command('FT.DROPINDEX', 'user_preferences_ctx_vnext', 'DD')
+            logger.info("Dropped RedisProvider index")
         except Exception as e:
             logger.warning(f"Could not drop index (may not exist): {e}")
         
-        # Re-seed with vectors
+        # Re-seed using RedisProvider's seeding method
         import os
-        from seeding import seed_user_preferences_with_vectors
+        from seeding import seed_redis_providers_directly
+        from redis_provider import create_redis_provider
+        import json
+        
         redis_url = os.getenv('REDIS_URL')
         if not redis_url:
             return "❌ REDIS_URL environment variable not set"
         
-        success = await seed_user_preferences_with_vectors(
-            redis_url=redis_url,
-            vectorizer=_vectorizer
-        )
+        # Load users from seed.json
+        with open('seed.json', 'r') as f:
+            seed_data = json.load(f)
+            users = list(seed_data.get('user_memories', {}).keys())
+        
+        # Recreate RedisProviders and seed
+        redis_providers = {}
+        for user_name in users:
+            provider = create_redis_provider(user_name, redis_url, _vectorizer)
+            redis_providers[user_name] = provider
+        
+        success = await seed_redis_providers_directly(redis_providers, redis_url)
         
         if success:
-            return "✅ Successfully reset and re-seeded all user preferences from seed.json with vector embeddings"
+            return "✅ Successfully reset and re-seeded all user context from seed.json into RedisProvider"
         else:
             return "⚠️ Reseed completed with warnings - check logs"
             
     except Exception as e:
         logger.error(f"Error during reseed: {e}", exc_info=True)
-        return f"❌ Failed to reseed preferences: {str(e)}"
+        return f"❌ Failed to reseed context: {str(e)}"

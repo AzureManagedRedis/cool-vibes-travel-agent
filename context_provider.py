@@ -74,8 +74,8 @@ def create_search_index(redis_url: str, vectorizer: AzureOpenAIVectorizer) -> Se
     """
     schema = {
         "index": {
-            "name": "user_preferences_idx",
-            "prefix": "cool-vibes-agent:UserPref:",
+            "name": "user_preferences_idx_vnext",
+            "prefix": "cool-vibes-agent-vnext:UserPref:",
             "storage_type": "hash"
         },
         "fields": [
@@ -131,7 +131,7 @@ async def store_preference(
     
     # Create unique key
     pref_id = str(uuid.uuid4())[:8]
-    redis_key = f"cool-vibes-agent:UserPref:{user_name}:{pref_id}"
+    redis_key = f"cool-vibes-agent-vnext:UserPref:{user_name}:{pref_id}"
     
     # Create document
     doc = {

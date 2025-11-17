@@ -1,5 +1,6 @@
 """Main application entry point for Travel Chat Agent."""
 import os
+import json
 import logging
 import asyncio
 from dotenv import load_dotenv
@@ -14,13 +15,10 @@ from agent_framework.observability import get_tracer, setup_observability
 # Ignite Code Location
 # Import tools
 from tools.user_tools import (
-    user_preferences,
     remember_preference,
     get_semantic_preferences,
     reseed_user_preferences,
-    set_redis_client,
-    set_search_index,
-    set_vectorizer
+    set_redis_client
 )
 from tools.travel_tools import (
     research_weather,
@@ -38,8 +36,7 @@ from agents.travel_agent import (
     TRAVEL_AGENT_INSTRUCTIONS
 )
 
-# Import seeding and conversation storage
-from seeding import seed_user_preferences_with_vectors
+# Import conversation storage
 from conversation_storage import create_chat_message_store_factory
 
 # Configure logging
@@ -89,46 +86,23 @@ def main():
     # Set Redis client for user tools
     set_redis_client(redis_client)
     
-    # Initialize vector search for preferences (Feature 4)
-    logger.info("Initializing vector search for semantic preferences...")
-    vectorizer = None
-    search_index = None
-    
-    try:
-        from context_provider import create_vectorizer, create_search_index
-        
-        vectorizer = create_vectorizer()
-        search_index = create_search_index(redis_url, vectorizer)
-        
-        # Set globals for tools
-        set_vectorizer(vectorizer)
-        set_search_index(search_index)
-        
-        logger.info("✓ Vector search initialized")
-        
-        # Seed vectorized preferences asynchronously
-        logger.info("Seeding vectorized user preferences...")
-        asyncio.run(seed_user_preferences_with_vectors(redis_url, vectorizer))
-        logger.info("✓ Vectorized preferences seeded")
-            
-    except Exception as e:
-        logger.warning(f"⚠ Could not initialize vector search: {e}")
-        logger.warning("  Falling back to static preferences only (this is normal if embedding deployment doesn't exist)")
-    
-    # Note: We no longer seed the old "Preferences" hash key
-    # All preferences are now stored as vectorized UserPref keys
-
+    # NOTE: Vector search is now handled by RedisProvider (initialized below)
+    # The old manual context_provider.py approach has been replaced
     
     # Create chat message store factory for conversation persistence
     logger.info("Initializing conversation storage with Redis...")
     try:
         chat_message_store_factory = create_chat_message_store_factory(redis_url)
         logger.info("✓ Conversation storage configured")
-        logger.info("  Conversations will be stored under: cool-vibes-agent:Conversations")
+        logger.info("  Conversations will be stored under: cool-vibes-agent-vnext:Conversations")
     except Exception as e:
         logger.error(f"Failed to initialize conversation storage: {e}")
         logger.warning("⚠ Continuing without conversation persistence")
         chat_message_store_factory = None
+    
+    # Note: Vector search components are no longer needed here since tools now use
+    # the Context:* namespace that RedisProvider manages. All preference data is seeded
+    # via seed_redis_providers_directly() below.
     
     # Initialize Azure OpenAI Responses client
     logger.info("Initializing Azure OpenAI Responses client...")
@@ -151,12 +125,24 @@ def main():
         logger.error(f"Failed to initialize Azure OpenAI Responses client: {e}")
         return
     
+    # Load users from seed.json
+    logger.info("Loading users from seed.json...")
+    users = []
+    try:
+        with open('seed.json', 'r') as f:
+            seed_data = json.load(f)
+            users = list(seed_data.get('user_memories', {}).keys())
+        logger.info(f"✓ Found {len(users)} users: {', '.join(users)}")
+    except Exception as e:
+        logger.error(f"Failed to load seed.json: {e}")
+        return
+    
     # Create travel agent tools list
+    # Note: user_preferences removed - RedisProvider now automatically injects preferences
     travel_tools = [
-        user_preferences,
-        get_semantic_preferences,
-        remember_preference,
-        reseed_user_preferences,
+        get_semantic_preferences,  # For targeted preference searches
+        remember_preference,  # To learn new preferences
+        reseed_user_preferences,  # To reset context data
         research_weather,
         research_destination,
         find_flights,
@@ -166,41 +152,101 @@ def main():
         make_purchase
     ]
     
-    # Create ticket agent tools list
-    ticket_tools = [
-        user_preferences,
-        get_semantic_preferences,
-        remember_preference,
-        find_events,
-        make_purchase
-    ]
+    # Create RedisProviders - need to create index BEFORE seeding data
+    logger.info("Initializing Redis context system...")
+    redis_providers = {}
     
-    # Create Travel Agent
-    logger.info("Creating Travel Agent...")
-    travel_agent = responses_client.create_agent(
-        name=TRAVEL_AGENT_NAME,
-        description=TRAVEL_AGENT_DESCRIPTION,
-        instructions=TRAVEL_AGENT_INSTRUCTIONS,
-        tools=travel_tools,
-        chat_message_store_factory=chat_message_store_factory
-    )
-    logger.info(f"✓ {TRAVEL_AGENT_NAME} created")
+    try:
+        from redis_provider import create_redis_provider, create_vectorizer
+        from seeding import seed_to_redis_directly_sync
+        
+        # Create shared vectorizer once for consistency
+        shared_vectorizer = create_vectorizer()
+        logger.info("✓ Created shared vectorizer")
+        
+        # Create FIRST provider to initialize the index (with overwrite_index=True)
+        # This ensures the index exists before we seed data
+        first_user = users[0]
+        logger.info(f"Creating first RedisProvider to initialize index...")
+        first_provider = create_redis_provider(
+            first_user, 
+            redis_url, 
+            shared_vectorizer,
+            overwrite_index=True
+        )
+        redis_providers[first_user] = first_provider
+        logger.info(f"✓ Index created via {first_user}'s provider")
+        
+        # NOW seed data - index exists so data will be indexed
+        logger.info("Seeding user preferences directly to Redis...")
+        seed_success = seed_to_redis_directly_sync(redis_url, shared_vectorizer)
+        if seed_success:
+            logger.info("✓ User preferences seeded and indexed")
+        else:
+            logger.warning("⚠ Seeding failed, providers will start with empty context")
+        
+        # Create remaining RedisProviders (overwrite_index=False)
+        logger.info("Creating remaining RedisProviders...")
+        for user_name in users[1:]:
+            try:
+                provider = create_redis_provider(
+                    user_name, 
+                    redis_url, 
+                    shared_vectorizer,
+                    overwrite_index=False  # Don't recreate index
+                )
+                redis_providers[user_name] = provider
+                logger.info(f"✓ RedisProvider created for {user_name}")
+            except Exception as e:
+                logger.error(f"Failed to create RedisProvider for {user_name}: {e}")
+        
+    except Exception as e:
+        logger.error(f"Failed to initialize RedisProviders: {e}")
+        redis_providers = {}
+    
+    # Create one agent per user with their RedisProvider
+    logger.info("Creating travel agents for each user...")
+    agents = []
+    
+    for user_name in users:
+        agent_name = f"{user_name}-cool-vibes-travel-agent"
+        redis_provider = redis_providers.get(user_name)
+        
+        try:
+            agent = responses_client.create_agent(
+                name=agent_name,
+                description=f"{TRAVEL_AGENT_DESCRIPTION} for {user_name}",
+                instructions=TRAVEL_AGENT_INSTRUCTIONS,
+                tools=travel_tools,
+                chat_message_store_factory=chat_message_store_factory,
+                context_providers=redis_provider if redis_provider else None
+            )
+            agents.append(agent)
+            
+            if redis_provider:
+                logger.info(f"✓ {agent_name} created with automatic context injection")
+            else:
+                logger.info(f"✓ {agent_name} created (explicit tools only)")
+            
+        except Exception as e:
+            logger.error(f"Failed to create agent for {user_name}: {e}")
+    
+    logger.info(f"✓ Created {len(agents)} travel agents")
     
     # Start DevUI
     logger.info("Starting DevUI...")
     logger.info("=" * 60)
-    logger.info("🚀 Travel Chat Agent is ready!")
+    logger.info("🚀 Travel Chat Agents are ready!")
     logger.info("=" * 60)
     logger.info("Access the DevUI in your browser to start chatting")
-    logger.info("Try these example queries:")
-    logger.info("  - 'Hi, I'm Mark. Can you help me plan a trip?'")
-    logger.info("  - 'I want to visit New York in November and catch a basketball game'")
-    logger.info("  - 'Hi, I'm Shruti. What family-friendly activities are in Chicago?'")
+    logger.info(f"Available agents: {', '.join([a.name for a in agents])}")
+    logger.info("Select an agent from the dropdown to start a conversation")
+    logger.info("Each agent has personalized context for their user")
     logger.info("=" * 60)
     
-    # Start DevUI with single travel agent
+    # Start DevUI with all user agents
     serve(
-        entities=[travel_agent],
+        entities=agents,
         host="0.0.0.0",
         port=8000,
         auto_open=False

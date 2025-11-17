@@ -26,7 +26,7 @@ def create_chat_message_store(thread_id: str, redis_url: str = None):
         store = RedisChatMessageStore(
             redis_url=redis_url,
             thread_id=thread_id,
-            key_prefix="cool-vibes-agent:Conversations",
+            key_prefix="cool-vibes-agent-vnext:Conversations",
             max_messages=1000,  # Keep up to 1000 messages per thread
         )
         logger.info(f"Created ChatMessageStore for thread: {thread_id}")
