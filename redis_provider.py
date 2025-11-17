@@ -65,6 +65,8 @@ def create_vectorizer() -> AzureOpenAIVectorizer:
     logger.info(f"✓ Created vectorizer with Azure OpenAI model: {embedding_deployment}")
     return vectorizer
 
+# AMR/AF: RedisProvider Creation with Shared Vectorizer
+# Ignite Code Location
 
 def create_redis_provider(user_name: str, redis_url: str, vectorizer: AzureOpenAIVectorizer, overwrite_index: bool = False) -> RedisProvider:
     """
