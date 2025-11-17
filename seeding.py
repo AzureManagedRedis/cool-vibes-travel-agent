@@ -214,3 +214,127 @@ async def seed_user_preferences_with_vectors(
     except Exception as e:
         logger.error(f"Error during vector seeding: {e}", exc_info=True)
         return False
+
+
+async def seed_preferences_for_redis_provider(
+    redis_url: str,
+    seed_file: str = "seed.json"
+) -> bool:
+    """
+    Seed user preferences for RedisProvider using redisvl SearchIndex directly.
+    
+    This Redis-native approach:
+    1. Creates a SearchIndex with vectorizer
+    2. Loads seed data as documents with embeddings
+    3. Index can be passed to RedisProvider for automatic context injection
+    
+    Args:
+        redis_url: Redis connection URL
+        seed_file: Path to seed.json
+        
+    Returns:
+        True if successful
+    """
+    try:
+        from redis_provider import create_vectorizer
+        from redisvl.index import SearchIndex
+        from redisvl.schema import IndexSchema
+        import redis as redis_lib
+        
+        # Create vectorizer
+        vectorizer = create_vectorizer()
+        
+        # Define schema matching RedisProvider's format
+        schema = IndexSchema.from_dict({
+            "index": {
+                "name": "cool-vibes-context",
+                "prefix": "cool-vibes-agent:Context",
+                "storage_type": "hash"
+            },
+            "fields": [
+                {"name": "content", "type": "text"},
+                {"name": "user_name", "type": "tag"},
+                {"name": "source", "type": "tag"},
+                {"name": "timestamp", "type": "text"},
+                {
+                    "name": "content_vector",
+                    "type": "vector",
+                    "attrs": {
+                        "dims": 1536,
+                        "algorithm": "hnsw",
+                        "distance_metric": "cosine"
+                    }
+                }
+            ]
+        })
+        
+        # Create index with vectorizer
+        index = SearchIndex(schema, redis_url=redis_url)
+        index.set_vectorizer(vectorizer)
+        
+        # Connect to Redis for cleanup
+        redis_client = redis_lib.from_url(redis_url, decode_responses=False)
+        
+        # Clean up existing context
+        pattern = "cool-vibes-agent:Context:*"
+        existing_keys = redis_client.keys(pattern)
+        if existing_keys:
+            redis_client.delete(*existing_keys)
+            logger.info(f"Deleted {len(existing_keys)} existing Context keys")
+        
+        # Create/recreate index
+        try:
+            index.create(overwrite=True)
+            logger.info("Created SearchIndex for RedisProvider context")
+        except Exception as e:
+            logger.warning(f"Index creation note: {e}")
+        
+        # Read seed data
+        seed_path = Path(seed_file)
+        if not seed_path.exists():
+            logger.warning(f"Seed file {seed_file} not found")
+            return False
+            
+        with open(seed_path, 'r') as f:
+            seed_data = json.load(f)
+        
+        user_memories = seed_data.get('user_memories', {})
+        if not user_memories:
+            logger.warning("No user_memories in seed.json")
+            return False
+        
+        # Prepare documents for batch loading
+        documents = []
+        keys = []
+        timestamp = datetime.utcnow().isoformat()
+        
+        doc_id = 0
+        for user_name, insights in user_memories.items():
+            for insight_dict in insights:
+                insight_text = insight_dict.get('insight', '')
+                if insight_text:
+                    # Create document with required fields
+                    doc = {
+                        "content": insight_text,
+                        "user_name": user_name,
+                        "source": "seed",
+                        "timestamp": timestamp
+                    }
+                    documents.append(doc)
+                    keys.append(f"cool-vibes-agent:Context:{user_name}:{doc_id}")
+                    doc_id += 1
+        
+        # Load documents (redisvl will handle vectorization)
+        if documents:
+            loaded_keys = index.load(
+                data=documents,
+                keys=keys
+            )
+            logger.info(f"Seeded {len(loaded_keys)} preferences for RedisProvider across {len(user_memories)} users")
+            return True
+        
+        return False
+        
+    except Exception as e:
+        logger.error(f"Error seeding for RedisProvider: {e}", exc_info=True)
+        return False
