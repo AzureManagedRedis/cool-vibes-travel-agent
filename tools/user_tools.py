@@ -9,6 +9,7 @@ from seeding import get_user_preferences
 _redis_client: redis.Redis = None
 _search_index = None
 _vectorizer = None
+_current_user = None  # Track current user for the agent
 
 logger = logging.getLogger(__name__)
 
@@ -31,61 +32,73 @@ def set_vectorizer(vectorizer):
     _vectorizer = vectorizer
 
 
+def set_current_user(user_name: str):
+    """Set the current user context for tools."""
+    global _current_user
+    _current_user = user_name
+
+
 # user_preferences() removed - RedisProvider now automatically injects preferences
 # No need for explicit tool call since context is always available
 
 
-async def remember_preference(
-    user_name: Annotated[str, "The name of the user"],
-    preference: Annotated[str, "The preference to remember for this user"]
-) -> str:
-    """
-    Store a new preference for a user directly into RedisProvider's context store.
-    This allows the agent to learn new preferences during conversations.
-    Stored preferences will be automatically injected in future conversations.
+def create_remember_preference_for_user(user_name: str):
+    """Create a remember_preference function bound to a specific user."""
+    async def remember_preference(
+        preference: Annotated[str, "The preference to remember for this user"]
+    ) -> str:
+        """
+        Store a new preference for the current user directly into RedisProvider's context store.
+        This allows the agent to learn new preferences during conversations.
+        Stored preferences will be automatically injected in future conversations.
+        
+        Args:
+            preference: The preference text to remember
+            
+        Returns:
+            Confirmation message
+        """
+        if not _redis_client or not _vectorizer:
+            return "❌ Preference storage service is not available."
+        
+        try:
+            from datetime import datetime
+            import uuid
+            import numpy as np
+            
+            # Generate embedding for the preference
+            embedding = _vectorizer.embed(preference)
+            embedding_bytes = np.array(embedding, dtype=np.float32).tobytes()
+            
+            # Create unique key in RedisProvider's Context namespace
+            # Format: user_name_key_id embedded in doc_id
+            key_id = str(uuid.uuid4())[:8]
+            doc_id = f"{user_name}_{key_id}"
+            key = f"cool-vibes-agent-vnext:Context:{doc_id}"
+            
+            # Store in same format as RedisProvider expects
+            _redis_client.hset(key, mapping={
+                b"content": preference.encode('utf-8'),
+                b"role": b"user",
+                b"mime_type": b"text/plain",
+                b"user_id": user_name.encode('utf-8'),
+                b"application_id": b"cool-vibes-travel-agent-vnext",
+                b"agent_id": f"agent_{user_name.lower()}".encode('utf-8'),
+                b"embedding": embedding_bytes,
+                b"timestamp": datetime.utcnow().isoformat().encode('utf-8'),
+                b"source": b"learned"
+            })
+            
+            logger.info(f"Stored new preference for {user_name} in Context store: {preference}")
+            return f"✅ I'll remember that {user_name} {preference}"
+            
+        except Exception as e:
+            logger.error(f"Failed to store preference: {e}", exc_info=True)
+            return f"❌ Sorry, I couldn't store that preference: {str(e)}"
     
-    Args:
-        user_name: The name of the user
-        preference: The preference text to remember
-        
-    Returns:
-        Confirmation message
-    """
-    if not _redis_client or not _vectorizer:
-        return "❌ Preference storage service is not available."
-    
-    try:
-        from datetime import datetime
-        import uuid
-        import numpy as np
-        
-        # Generate embedding for the preference
-        embedding = _vectorizer.embed(preference)
-        embedding_bytes = np.array(embedding, dtype=np.float32).tobytes()
-        
-        # Create unique key in RedisProvider's Context namespace
-        doc_id = str(uuid.uuid4())[:8]
-        key = f"cool-vibes-agent-vnext:Context:{user_name}:{doc_id}"
-        
-        # Store in same format as RedisProvider expects
-        _redis_client.hset(key, mapping={
-            b"content": preference.encode('utf-8'),
-            b"role": b"user",
-            b"mime_type": b"text/plain",
-            b"user_id": user_name.encode('utf-8'),
-            b"application_id": b"cool-vibes-travel-agent-vnext",
-            b"agent_id": f"agent_{user_name.lower()}".encode('utf-8'),
-            b"embedding": embedding_bytes,
-            b"timestamp": datetime.utcnow().isoformat().encode('utf-8'),
-            b"source": b"learned"
-        })
-        
-        logger.info(f"Stored new preference for {user_name} in Context store: {preference}")
-        return f"✅ I'll remember that {user_name} {preference}"
-        
-    except Exception as e:
-        logger.error(f"Failed to store preference: {e}", exc_info=True)
-        return f"❌ Sorry, I couldn't store that preference: {str(e)}"
+    # Set function name and annotations for the agent framework
+    remember_preference.__name__ = "remember_preference"
+    return remember_preference
 
 
 async def get_semantic_preferences(
@@ -163,63 +176,4 @@ async def get_semantic_preferences(
         return f"❌ Error searching preferences: {str(e)}"
 
 
-async def reseed_user_preferences() -> str:
-    """
-    Delete all existing context from RedisProvider and re-seed from seed.json.
-    This will reset all preferences to the initial seed data.
-    Note: This affects the same data RedisProvider uses for automatic context injection.
-    
-    Returns:
-        Confirmation message
-    """
-    try:
-        if not _redis_client:
-            return "❌ Cannot reseed - Redis client not available"
-        
-        logger.info("Starting reseed operation for RedisProvider context...")
-        
-        # Delete all Context keys (what RedisProvider uses)
-        pattern = "cool-vibes-agent-vnext:Context:*"
-        keys = _redis_client.keys(pattern)
-        if keys:
-            _redis_client.delete(*keys)
-            logger.info(f"Deleted {len(keys)} context keys")
-        
-        # Try to drop the RediSearch index used by RedisProvider
-        try:
-            _redis_client.execute_command('FT.DROPINDEX', 'user_preferences_ctx_vnext', 'DD')
-            logger.info("Dropped RedisProvider index")
-        except Exception as e:
-            logger.warning(f"Could not drop index (may not exist): {e}")
-        
-        # Re-seed using RedisProvider's seeding method
-        import os
-        from seeding import seed_redis_providers_directly
-        from redis_provider import create_redis_provider
-        import json
-        
-        redis_url = os.getenv('REDIS_URL')
-        if not redis_url:
-            return "❌ REDIS_URL environment variable not set"
-        
-        # Load users from seed.json
-        with open('seed.json', 'r') as f:
-            seed_data = json.load(f)
-            users = list(seed_data.get('user_memories', {}).keys())
-        
-        # Recreate RedisProviders and seed
-        redis_providers = {}
-        for user_name in users:
-            provider = create_redis_provider(user_name, redis_url, _vectorizer)
-            redis_providers[user_name] = provider
-        
-        success = await seed_redis_providers_directly(redis_providers, redis_url)
-        
-        if success:
-            return "✅ Successfully reset and re-seeded all user context from seed.json into RedisProvider"
-        else:
-            return "⚠️ Reseed completed with warnings - check logs"
-            
-    except Exception as e:
-        logger.error(f"Error during reseed: {e}", exc_info=True)
-        return f"❌ Failed to reseed context: {str(e)}"
+

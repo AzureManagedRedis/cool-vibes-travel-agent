@@ -10,7 +10,7 @@ This sample was fully "vibe coded" using GitHub Copilot Agent. All specification
 - **Persistent Conversation History**: All conversations stored in Azure Managed Redis and persist across sessions using Agent Framework's RedisChatMessageStore
 - **Automatic Context Injection**: RedisProvider automatically injects relevant user preferences into each conversation using semantic search
 - **Semantic Preference Retrieval**: Vector-based preference storage with semantic search capabilities powered by RediSearch
-- **Per-User Context Isolation**: Each user has their own RedisProvider instance with isolated preference storage
+- **Per-User Context**: Each user has their own RedisProvider instance with preference storage
 - **DevUI Integration**: Interactive testing interface with multi-user support
 
 ## Quick Start
@@ -198,7 +198,6 @@ Agent: [Uses get_semantic_preferences with query "hotels"]
 **User Preference Tools:**
 - `remember_preference` - Learn and store new preferences directly to RedisProvider's context store with embeddings
 - `get_semantic_preferences` - Perform targeted semantic search for specific preference topics
-- `reseed_user_preferences` - Reset all context and re-seed from seed.json
 
 Note: General preferences are automatically injected by RedisProvider - no explicit tool call needed for basic retrieval!
 

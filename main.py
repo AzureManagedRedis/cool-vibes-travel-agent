@@ -15,10 +15,10 @@ from agent_framework.observability import get_tracer, setup_observability
 # Ignite Code Location
 # Import tools
 from tools.user_tools import (
-    remember_preference,
+    create_remember_preference_for_user,
     get_semantic_preferences,
-    reseed_user_preferences,
-    set_redis_client
+    set_redis_client,
+    set_vectorizer
 )
 from tools.travel_tools import (
     research_weather,
@@ -134,23 +134,11 @@ def main():
             users = list(seed_data.get('user_memories', {}).keys())
         logger.info(f"✓ Found {len(users)} users: {', '.join(users)}")
     except Exception as e:
-        logger.error(f"Failed to load seed.json: {e}")
+        logger.error(f"Failed to initialize Azure OpenAI Responses client: {e}")
         return
     
-    # Create travel agent tools list
-    # Note: user_preferences removed - RedisProvider now automatically injects preferences
-    travel_tools = [
-        get_semantic_preferences,  # For targeted preference searches
-        remember_preference,  # To learn new preferences
-        reseed_user_preferences,  # To reset context data
-        research_weather,
-        research_destination,
-        find_flights,
-        find_accommodation,
-        booking_assistance,
-        find_events,
-        make_purchase
-    ]
+    # Set global Redis client for user tools
+    set_redis_client(redis_client)
     
     # Create RedisProviders - need to create index BEFORE seeding data
     logger.info("Initializing Redis context system...")
@@ -163,6 +151,10 @@ def main():
         # Create shared vectorizer once for consistency
         shared_vectorizer = create_vectorizer()
         logger.info("✓ Created shared vectorizer")
+        
+        # Set vectorizer for user tools (enables remember_preference and get_semantic_preferences)
+        set_vectorizer(shared_vectorizer)
+        logger.info("✓ Vectorizer set for user tools")
         
         # Create FIRST provider to initialize the index (with overwrite_index=True)
         # This ensures the index exists before we seed data
@@ -211,6 +203,22 @@ def main():
     for user_name in users:
         agent_name = f"{user_name}-cool-vibes-travel-agent"
         redis_provider = redis_providers.get(user_name)
+        
+        # Create user-specific remember_preference tool
+        remember_pref_tool = create_remember_preference_for_user(user_name)
+        
+        # Create travel agent tools list specific to this user
+        travel_tools = [
+            get_semantic_preferences,  # For targeted preference searches
+            remember_pref_tool,  # User-specific remember function
+            research_weather,
+            research_destination,
+            find_flights,
+            find_accommodation,
+            booking_assistance,
+            find_events,
+            make_purchase
+        ]
         
         try:
             agent = responses_client.create_agent(

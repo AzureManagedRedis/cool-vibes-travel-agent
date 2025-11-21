@@ -485,8 +485,9 @@ async def seed_context_for_redis_provider(
                     import numpy as np
                     embedding_bytes = np.array(embedding, dtype=np.float32).tobytes()
                     
-                    # Create Redis key
-                    key = f"cool-vibes-agent-vnext:Context:{user_name}:{idx}"
+                    # Create Redis key in format user_name_key_id
+                    doc_id = f"{user_name}_{idx}"
+                    key = f"cool-vibes-agent-vnext:Context:{doc_id}"
                     
                     # Store as hash
                     redis_client.hset(key, mapping={
