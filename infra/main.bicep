@@ -162,6 +162,7 @@ module redis './core/database/redis.bicep' = {
     location: location
     tags: tags
     sku: redisSku
+    enableRediSearch: true  // Required for vector similarity search
     logAnalyticsWorkspaceId: logAnalytics.outputs.id
   }
 }
