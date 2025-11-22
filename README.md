@@ -4,6 +4,24 @@ A sample Travel Chat Agent built with Microsoft Agent Framework, Azure OpenAI, a
 
 This sample was fully "vibe coded" using GitHub Copilot Agent. All specifications and prompts available in the [specs_and_prompts](./specs_and_prompts) folder.
 
+## Memory Architecture
+
+The agent implements a dual-memory system using Agent Framework:
+
+```python
+agent = responses_client.create_agent(
+    name=agent_name,
+    description=f"{TRAVEL_AGENT_DESCRIPTION} for {user_name}",
+    instructions=TRAVEL_AGENT_INSTRUCTIONS,
+    tools=travel_tools,
+    chat_message_store_factory=chat_message_store_factory,  # Short-term memory: conversation history
+    context_providers=redis_provider  # Long-term memory: user preferences with semantic search
+)
+```
+
+- **`chat_message_store_factory`**: Short-term memory storing conversation history in Redis for context continuity across sessions
+- **`context_providers`**: Long-term memory using RedisProvider for semantic retrieval of user preferences with vector embeddings
+
 ## Features
 
 - **Intelligent Travel Agent**: Single unified agent handling destination research, weather, flights, accommodations, and sports event booking
